@@ -1,0 +1,10 @@
+bin/
+obj/
+publish/
+.vs/
+*.user
+*.db
+*.db-shm
+*.db-wal
+Properties/launchSettings.json
+bot.env
