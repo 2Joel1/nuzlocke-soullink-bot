@@ -9,6 +9,30 @@ namespace NuzlockeBot.Services;
 /// </summary>
 public sealed record Card(EmbedBuilder Embed, MemoryStream? Image, string FileName);
 
+public static class CardExtensions
+{
+    /// <summary>
+    /// Wandelt Karten in Embeds + Dateianhänge um. Jede Karte mit Bild verweist per "attachment://" auf ihre Datei;
+    /// das große Bild ersetzt dabei das kleine Vorschaubild.
+    /// </summary>
+    public static (Embed[] Embeds, List<FileAttachment> Files) Prepare(this IEnumerable<Card> cards)
+    {
+        var list = cards.ToList();
+        var embeds = list.Select(c =>
+        {
+            if (c.Image is not null)
+            {
+                c.Embed.ThumbnailUrl = null;
+                c.Embed.WithImageUrl($"attachment://{c.FileName}");
+            }
+            return c.Embed.Build();
+        }).ToArray();
+
+        var files = list.Where(c => c.Image is not null).Select(c => new FileAttachment(c.Image!, c.FileName)).ToList();
+        return (embeds, files);
+    }
+}
+
 /// <summary>Baut die Karten für alle Nachrichten mit Bild.</summary>
 public class CardFactory(ImageRenderer renderer)
 {
@@ -99,6 +123,35 @@ public class CardFactory(ImageRenderer renderer)
             [run.EndReason ?? "", $"{run.Links.Count} Routen · {dead} Soul Links gestorben"],
             mons, grayscale: run.Status != RunStatus.Geschafft);
         return new Card(embed, image, "run-ende.png");
+    }
+
+    /// <summary>Rückblick mit Kennzahlen, Zeitstrahl, Spielern und Friedhof.</summary>
+    public async Task<Card> RecapAsync(Run run)
+    {
+        var stats = RunService.ComputeStats([run], aliveIn: run);
+        var dead = run.Links.Where(l => l.Status == LinkStatus.Tot).ToList();
+        var end = run.EndedAt ?? DateTime.UtcNow;
+        var hours = (end - run.StartedAt).TotalHours;
+        var topCause = dead.Where(l => !string.IsNullOrWhiteSpace(l.DeathCause))
+            .GroupBy(l => l.DeathCause!.Trim().ToLowerInvariant())
+            .OrderByDescending(g => g.Count()).FirstOrDefault()?.First().DeathCause;
+
+        var embed = new EmbedBuilder()
+            .WithTitle($"📜 Rückblick – Run #{run.Number}")
+            .WithDescription(
+                $"**Dauer:** {(hours >= 24 ? $"{hours / 24:0.#} Tage" : $"{hours:0.#} Stunden")}\n" +
+                $"**Routen:** {run.Links.Count} · **Fänge:** {stats.Sum(x => x.Caught)} · **Tode:** {dead.Count}" +
+                (topCause is null ? "" : $"\n**Häufigste Todesursache:** {topCause}"))
+            .WithColor(run.Status switch
+            {
+                RunStatus.Geschafft => Formatting.Gold,
+                RunStatus.Gescheitert => Formatting.Red,
+                RunStatus.Aktiv => Formatting.Green,
+                _ => Formatting.Grey
+            });
+
+        var image = await renderer.RecapAsync(run, stats);
+        return new Card(embed, image, "rueckblick.png");
     }
 
     /// <summary>Status als Board: alle Routen, lebende zuerst.</summary>

@@ -32,6 +32,11 @@ public class RunModule(RunService runs, AchievementService achievements, CardFac
         _ => RunStatus.Gescheitert
     };
 
+    [SlashCommand("rueckblick", "Rückblick eines Runs: Dauer, Zeitstrahl, Spieler, Friedhof")]
+    public Task RueckblickAsync(
+        [Summary("nummer", "Run-Nummer (leer = aktueller bzw. letzter Run)"), MinValue(1)] int nummer = 0) =>
+        SafeAsync(() => DoShowRecapAsync(nummer > 0 ? nummer : null));
+
     [SlashCommand("liste", "Alle bisherigen Runs und Statistik")]
     public Task ListeAsync() =>
         SafeAsync(async () =>

@@ -37,6 +37,9 @@ Gruppe von Spielern dokumentiert – mit Regelprüfung, Statistiken, Erfolgen un
 - **Generierte Bilder** – Banner mit den Sprites aller Soul-Link-Partner, ein Status-Board pro Run und
   große Statistik-Tabellen, gezeichnet zur Laufzeit.
 - **Statistiken** – pro Run und über alle Runs: lebende Pokémon, Fänge, ausgelöste Tode, verpasste Encounter.
+- **Live-Status** – eine angepinnte Nachricht mit Board und Tabelle, die sich bei jeder Änderung selbst aktualisiert.
+- **Run-Rückblick** – am Ende jedes Runs ein Bild mit Dauer, Zeitstrahl aller Fänge und Tode, Spieler-Statistik
+  und nummeriertem Friedhof.
 - **16 Erfolge & 5 Titel** – z. B. *Legendär*, *Blitzkrieg*, *Wipe-Verursacher*; Titel wie *Pechvogel*
   wandern automatisch zum aktuell Führenden.
 - **Zwei Bedienwege** – Slash-Commands mit Autocomplete oder ein Bedienfeld mit Buttons,
@@ -64,6 +67,8 @@ flowchart LR
     B --> R[RunService<br/>Spielregeln]
     B --> A[AchievementService<br/>Erfolge & Titel]
     B --> C[CardFactory]
+    R -.->|RunChanged-Event| L[LiveStatusService<br/>Live-Nachricht]
+    L --> C
     C --> I[ImageRenderer<br/>Banner, Board, Tabelle]
     I -->|Sprites| P[(PokeAPI)]
     R --> DB[(SQLite)]
@@ -95,6 +100,9 @@ einen Status (*lebendig*, *gebrochen*, *tot*). Dadurch reicht ein einziger Statu
   Aufrufer; unerwartete Fehler werden zentral geloggt.
 - **Bilder mit Fallback** – Discord verlangt eine Antwort innerhalb von 3 Sekunden. Der Bot bestätigt deshalb
   zuerst, rendert dann und reicht das Bild nach. Schlägt das Rendern fehl, kommt die Nachricht als Text.
+- **Observer-Prinzip für den Live-Status** – `RunService` löst nach jeder Änderung ein `RunChanged`-Event aus.
+  Der `LiveStatusService` hört darauf, ohne dass die Spiellogik von ihm weiß. Mehrere Änderungen innerhalb von
+  2 Sekunden werden zu einer Aktualisierung zusammengefasst (Debouncing), um Discords Rate-Limits zu schonen.
 - **Minimale Rechte** – keine privilegierten Gateway-Intents, der Bot liest keine Nachrichteninhalte.
 
 ## Commands
@@ -107,6 +115,8 @@ einen Status (*lebendig*, *gebrochen*, *tot*). Dadurch reicht ein einziger Statu
 | `/menu` | Bedienfeld mit Buttons posten |
 | `/spieler beitreten [name]` · `verlassen` · `liste` | Mitspieler verwalten |
 | `/run start` · `/run ende ergebnis [grund]` · `/run liste` | Runs verwalten, Historie anzeigen |
+| `/run rueckblick [nummer]` | Rückblick-Bild eines Runs (kommt beim Run-Ende automatisch) |
+| `/live einrichten` · `/live entfernen` | Live-Status im aktuellen Kanal (nur mit „Kanäle verwalten“) |
 | `/fang route pokemon [spitzname]` | Fang eintragen |
 | `/verpasst route [pokemon]` | Encounter verpasst → Soul Link gebrochen |
 | `/tod route ursache` | Pokémon gestorben → ganzer Soul Link tot |
@@ -155,6 +165,7 @@ einen Status (*lebendig*, *gebrochen*, *tot*). Dadurch reicht ein einziger Statu
 │   ├── AchievementService.cs      Erfolge und Titel
 │   ├── ImageRenderer.cs           Zeichnet Banner, Boards und Tabellen
 │   ├── CardFactory.cs             Kombiniert Embed + Bild zu einer Nachricht
+│   ├── LiveStatusService.cs       Hält die Live-Statusnachricht aktuell
 │   └── Formatting.cs              Texte und Embeds
 ├── Modules/                       Slash-Commands, Buttons, Modals, Autocomplete
 └── Assets/Fonts/                  Schriftart für die Bilder
@@ -166,7 +177,9 @@ einen Status (*lebendig*, *gebrochen*, *tot*). Dadurch reicht ein einziger Statu
 
 1. Im [Discord Developer Portal](https://discord.com/developers/applications) eine **New Application** erstellen
 2. Reiter **Bot** → **Reset Token** → Token kopieren (geheim halten!)
-3. Reiter **OAuth2 → URL Generator**: Scopes `bot` + `applications.commands`, Permission `Send Messages`
+3. Reiter **OAuth2 → URL Generator**: Scopes `bot` + `applications.commands`, Permissions
+   `View Channels`, `Send Messages`, `Embed Links`, `Attach Files`, `Read Message History`
+   und optional `Manage Messages` (zum Anpinnen des Live-Status)
 4. Den generierten Link öffnen und den Bot auf den Server einladen
 
 ### 2. Lokal starten

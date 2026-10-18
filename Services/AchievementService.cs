@@ -28,6 +28,16 @@ public class AchievementService(IDbContextFactory<NuzlockeDbContext> dbFactory)
 
     private static bool IsFinished(Run r) => r.Status is RunStatus.Gescheitert or RunStatus.Geschafft;
 
+    /// <summary>Starter aller Generationen bis 5 (inkl. Entwicklungen).</summary>
+    private static readonly HashSet<int> StarterNumbers =
+    [
+        1, 2, 3, 4, 5, 6, 7, 8, 9,
+        152, 153, 154, 155, 156, 157, 158, 159, 160,
+        252, 253, 254, 255, 256, 257, 258, 259, 260,
+        387, 388, 389, 390, 391, 392, 393, 394, 395,
+        495, 496, 497, 498, 499, 500, 501, 502, 503
+    ];
+
     public static readonly IReadOnlyList<Achievement> All =
     [
         // Fangen
@@ -74,16 +84,6 @@ public class AchievementService(IDbContextFactory<NuzlockeDbContext> dbFactory)
             f => f.Runs.Count >= 10),
         new("champion", "🏆", "Champion", "Einen Run geschafft",
             f => f.Runs.Any(r => r.Status == RunStatus.Geschafft)),
-    ];
-
-    /// <summary>Starter aller Generationen bis 5 (inkl. Entwicklungen).</summary>
-    private static readonly HashSet<int> StarterNumbers =
-    [
-        1, 2, 3, 4, 5, 6, 7, 8, 9,
-        152, 153, 154, 155, 156, 157, 158, 159, 160,
-        252, 253, 254, 255, 256, 257, 258, 259, 260,
-        387, 388, 389, 390, 391, 392, 393, 394, 395,
-        495, 496, 497, 498, 499, 500, 501, 502, 503
     ];
 
     public static Achievement? Find(string key) => All.FirstOrDefault(a => a.Key == key);

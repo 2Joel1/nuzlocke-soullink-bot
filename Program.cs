@@ -22,6 +22,7 @@ var services = new ServiceCollection()
     .AddSingleton<AchievementService>()
     .AddSingleton<ImageRenderer>()
     .AddSingleton<CardFactory>()
+    .AddSingleton<LiveStatusService>()
     .BuildServiceProvider();
 
 // --- Datenbank anlegen (falls noch nicht vorhanden) ---
@@ -32,6 +33,7 @@ await using (var db = await services.GetRequiredService<IDbContextFactory<Nuzloc
 }
 
 var client = services.GetRequiredService<DiscordSocketClient>();
+services.GetRequiredService<LiveStatusService>(); // erzeugen, damit er sich für Run-Änderungen anmeldet
 var interactions = services.GetRequiredService<InteractionService>();
 
 client.Log += LogAsync;

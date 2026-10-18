@@ -66,17 +66,7 @@ public abstract class NuzlockeModuleBase(RunService runs, AchievementService ach
     /// <summary>Sendet eine oder mehrere Karten in einer Nachricht. Jede Karte bekommt ihr Bild unten im Embed.</summary>
     protected async Task SendCardsAsync(bool ephemeral, string? text, MessageComponent? components, params Card[] cards)
     {
-        var embeds = cards.Select(c =>
-        {
-            if (c.Image is not null)
-            {
-                c.Embed.ThumbnailUrl = null; // das große Bild ersetzt das kleine
-                c.Embed.WithImageUrl($"attachment://{c.FileName}");
-            }
-            return c.Embed.Build();
-        }).ToArray();
-
-        var files = cards.Where(c => c.Image is not null).Select(c => new FileAttachment(c.Image!, c.FileName)).ToList();
+        var (embeds, files) = cards.Prepare();
         try
         {
             var responded = Context.Interaction.HasResponded;
@@ -162,7 +152,7 @@ public abstract class NuzlockeModuleBase(RunService runs, AchievementService ach
             status == RunStatus.Geschafft ? "🏆 **GG!** Run geschafft!" : $"Neuer Versuch mit `/run start`.",
             null,
             await Cards.RunEndAsync(run),
-            await Cards.StatusAsync(run, "run-board.png"));
+            await Cards.RecapAsync(run));
         await AnnounceAchievementsAsync();
     }
 
@@ -186,6 +176,13 @@ public abstract class NuzlockeModuleBase(RunService runs, AchievementService ach
         var run = await Runs.GetRunAsync(GuildId, number);
         await DeferForImageAsync(ephemeral);
         await SendCardsAsync(ephemeral, null, null, await Cards.GraveyardAsync(run));
+    }
+
+    protected async Task DoShowRecapAsync(int? number)
+    {
+        var run = await Runs.GetRunAsync(GuildId, number);
+        await DeferForImageAsync();
+        await SendCardsAsync(false, null, null, await Cards.RecapAsync(run));
     }
 
     protected async Task<Card> RunTableCardAsync(int? number)

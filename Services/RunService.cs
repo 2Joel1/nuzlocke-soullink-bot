@@ -14,6 +14,14 @@ public record PlayerStats(string Name, int Runs, int Alive, int Caught, int Deat
 
 public class RunService(IDbContextFactory<NuzlockeDbContext> dbFactory)
 {
+    /// <summary>
+    /// Wird nach jeder Änderung an einem Run ausgelöst (Fang, Tod, Start, Ende, Korrektur …).
+    /// Die Live-Statusnachricht hört darauf und aktualisiert sich (Observer-Prinzip).
+    /// </summary>
+    public event Action<ulong>? RunChanged;
+
+    private void OnRunChanged(ulong guildId) => RunChanged?.Invoke(guildId);
+
     // ---------------------------------------------------------------- Hilfen
 
     public static string Normalize(string route) =>
@@ -113,6 +121,7 @@ public class RunService(IDbContextFactory<NuzlockeDbContext> dbFactory)
 
         db.Runs.Add(run);
         await db.SaveChangesAsync();
+        OnRunChanged(guildId);
         return (run, previous);
     }
 
@@ -128,6 +137,7 @@ public class RunService(IDbContextFactory<NuzlockeDbContext> dbFactory)
         run.EndedAt = DateTime.UtcNow;
         run.EndReason = string.IsNullOrWhiteSpace(reason) ? null : reason.Trim();
         await db.SaveChangesAsync();
+        OnRunChanged(guildId);
         return run;
     }
 
@@ -184,6 +194,7 @@ public class RunService(IDbContextFactory<NuzlockeDbContext> dbFactory)
         });
 
         await db.SaveChangesAsync();
+        OnRunChanged(guildId);
         return new LinkResult(run, link);
     }
 
@@ -207,6 +218,7 @@ public class RunService(IDbContextFactory<NuzlockeDbContext> dbFactory)
         RecalculateStatus(link);
 
         await db.SaveChangesAsync();
+        OnRunChanged(guildId);
         return new LinkResult(run, link);
     }
 
@@ -228,6 +240,7 @@ public class RunService(IDbContextFactory<NuzlockeDbContext> dbFactory)
         link.CausedByPlayer = player;
 
         await db.SaveChangesAsync();
+        OnRunChanged(guildId);
         return new LinkResult(run, link);
     }
 
@@ -326,6 +339,7 @@ public class RunService(IDbContextFactory<NuzlockeDbContext> dbFactory)
         }
 
         await db.SaveChangesAsync();
+        OnRunChanged(guildId);
         return new LinkResult(run, link);
     }
 
@@ -346,6 +360,7 @@ public class RunService(IDbContextFactory<NuzlockeDbContext> dbFactory)
         RecalculateStatus(link);
 
         await db.SaveChangesAsync();
+        OnRunChanged(guildId);
         return new LinkResult(run, link);
     }
 

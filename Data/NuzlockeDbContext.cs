@@ -11,6 +11,7 @@ public class NuzlockeDbContext(DbContextOptions<NuzlockeDbContext> options) : Db
     public DbSet<Encounter> Encounters => Set<Encounter>();
     public DbSet<CustomRoute> CustomRoutes => Set<CustomRoute>();
     public DbSet<PlayerAchievement> PlayerAchievements => Set<PlayerAchievement>();
+    public DbSet<LiveMessage> LiveMessages => Set<LiveMessage>();
 
     /// <summary>
     /// Legt Tabellen an, die nach dem ersten Start dazugekommen sind.
@@ -37,6 +38,12 @@ public class NuzlockeDbContext(DbContextOptions<NuzlockeDbContext> options) : Db
                 CONSTRAINT "FK_PlayerAchievements_Players_PlayerId" FOREIGN KEY ("PlayerId") REFERENCES "Players" ("Id") ON DELETE CASCADE
             );
             CREATE UNIQUE INDEX IF NOT EXISTS "IX_PlayerAchievements_PlayerId_Key" ON "PlayerAchievements" ("PlayerId", "Key");
+
+            CREATE TABLE IF NOT EXISTS "LiveMessages" (
+                "GuildId" INTEGER NOT NULL CONSTRAINT "PK_LiveMessages" PRIMARY KEY,
+                "ChannelId" INTEGER NOT NULL,
+                "MessageId" INTEGER NOT NULL
+            );
             """);
     }
 
@@ -63,6 +70,9 @@ public class NuzlockeDbContext(DbContextOptions<NuzlockeDbContext> options) : Db
             .WithMany()
             .HasForeignKey(l => l.CausedByPlayerId)
             .OnDelete(DeleteBehavior.SetNull);
+
+        b.Entity<LiveMessage>().HasKey(m => m.GuildId);
+        b.Entity<LiveMessage>().Property(m => m.GuildId).ValueGeneratedNever();
 
         b.Entity<PlayerAchievement>()
             .HasIndex(a => new { a.PlayerId, a.Key })

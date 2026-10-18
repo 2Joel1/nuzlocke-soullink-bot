@@ -94,6 +94,14 @@ public class CustomRoute
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
 }
 
+/// <summary>Die Live-Statusnachricht eines Servers (eine pro Server).</summary>
+public class LiveMessage
+{
+    public long GuildId { get; set; }
+    public long ChannelId { get; set; }
+    public long MessageId { get; set; }
+}
+
 /// <summary>Freigeschalteter Erfolg eines Spielers (einmalig, mit Datum).</summary>
 public class PlayerAchievement
 {

@@ -125,7 +125,7 @@ public sealed class ImageRenderer
         {
             var players = run.Participants.OrderBy(p => p.PlayerId).ToList();
             const int RowH = 124, Top = 170, RouteCol = 340;
-            var W = Math.Max(1200, RouteCol + players.Count * 280);
+            var W = Math.Max(1200, RouteCol + players.Count * 300 + 48);
             var H = Top + RowH * Math.Max(links.Count, 1) + 30;
             var colW = (W - RouteCol - 48f) / Math.Max(players.Count, 1);
 
@@ -161,8 +161,8 @@ public sealed class ImageRenderer
                         LinkStatus.Gebrochen => Tone.Yellow,
                         _ => Tone.Red
                     }));
-                    ctx.DrawText(Fit(link.Route, Bold(32), RouteCol - 80), Bold(32), dead ? Muted : Text,
-                        new PointF(64, y + (RowH - 40) / 2f));
+                    ctx.DrawText(Fit(link.Route, Bold(28), RouteCol - 80), Bold(28), dead ? Muted : Text,
+                        new PointF(64, y + (RowH - 36) / 2f));
 
                     for (var i = 0; i < players.Count; i++)
                     {
@@ -187,10 +187,10 @@ public sealed class ImageRenderer
                         }
 
                         var hasNick = !string.IsNullOrWhiteSpace(e.Nickname);
-                        ctx.DrawText(Fit(hasNick ? e.Nickname! : e.Species, Bold(28), colW - 130), Bold(28), dead ? Muted : Text,
-                            new PointF(cx + 116, y + 30));
+                        ctx.DrawText(Fit(hasNick ? e.Nickname! : e.Species, Bold(26), colW - 118), Bold(26), dead ? Muted : Text,
+                            new PointF(cx + 108, y + 32));
                         if (hasNick)
-                            ctx.DrawText(Fit(e.Species, Regular(22), colW - 130), Regular(22), Muted, new PointF(cx + 116, y + 68));
+                            ctx.DrawText(Fit(e.Species, Regular(21), colW - 118), Regular(21), Muted, new PointF(cx + 108, y + 67));
                     }
 
                     y += RowH;
@@ -249,6 +249,191 @@ public sealed class ImageRenderer
 
             return await ToPngAsync(img);
         });
+
+    /// <summary>
+    /// Rückblick eines Runs: Ergebnis und Dauer, vier Kennzahlen, Zeitstrahl mit allen Fängen und Toden,
+    /// Spieler-Statistik und der nummerierte Friedhof (Nummern passen zu den Markierungen im Zeitstrahl).
+    /// </summary>
+    public Task<MemoryStream?> RecapAsync(Run run, IReadOnlyList<PlayerStats> stats) =>
+        SafeRenderAsync(async () =>
+        {
+            const int W = 1200, MaxDeaths = 8;
+            var start = run.StartedAt;
+            var end = run.EndedAt ?? DateTime.UtcNow;
+            var total = Math.Max((end - start).TotalHours, 0.01);
+
+            var (tone, result) = run.Status switch
+            {
+                RunStatus.Geschafft => (Tone.Gold, "Geschafft"),
+                RunStatus.Gescheitert => (Tone.Red, "Gescheitert"),
+                RunStatus.Abgebrochen => (Tone.Grey, "Abgebrochen"),
+                _ => (Tone.Green, "Läuft seit")
+            };
+            var accent = ToColor(tone);
+
+            var encounters = run.Links.SelectMany(l => l.Encounters).ToList();
+            var deaths = run.Links.Where(l => l.Status == LinkStatus.Tot && l.DiedAt != null).OrderBy(l => l.DiedAt).ToList();
+            var shown = deaths.Take(MaxDeaths).ToList();
+
+            // Sprites der gezeigten Toten vorab laden
+            var deadSpecies = shown.SelectMany(l => l.Encounters)
+                .Where(e => e.Status == EncounterStatus.Gefangen).Select(e => e.Species).Distinct().ToList();
+            var sprites = (await Task.WhenAll(deadSpecies.Select(async sp => (sp, Img: await LoadSpriteAsync(sp)))))
+                .ToDictionary(x => x.sp, x => x.Img);
+
+            var H = 40 + 150 + 150 + 180 + 50 + 60 * stats.Count + 104 + 96 * Math.Max(1, shown.Count)
+                    + (deaths.Count > MaxDeaths ? 40 : 0) + 40;
+
+            using var img = CreateBackground(W, H, accent);
+            img.Mutate(ctx =>
+            {
+                // Kopf
+                var duration = FormatDuration(end - start);
+                ctx.DrawText($"RÜCKBLICK · RUN #{run.Number}", Bold(30), accent, new PointF(56, 40));
+                ctx.DrawText(Fit(run.Status == RunStatus.Aktiv ? $"{result} {duration}" : $"{result} nach {duration}", Bold(64), W - 104),
+                    Bold(64), Text, new PointF(52, 82));
+
+                // Kennzahlen
+                (string Value, string Label, Color Color)[] tiles =
+                [
+                    (FormatDuration(end - start, compact: true), "Dauer", Text),
+                    ($"{run.Links.Count}", "Routen", Text),
+                    ($"{encounters.Count(e => e.Status == EncounterStatus.Gefangen)}", "Fänge", ToColor(Tone.Blue)),
+                    ($"{deaths.Count}", "Tode", ToColor(Tone.Red))
+                ];
+                var tileW = (W - 96 - 3 * 24) / 4f;
+                for (var i = 0; i < tiles.Length; i++)
+                {
+                    var tx = 48 + i * (tileW + 24);
+                    RoundedRect(ctx, tx, 190, tileW, 120, 16, Panel);
+                    ctx.DrawText(Fit(tiles[i].Value, Bold(52), tileW - 40), Bold(52), tiles[i].Color, new PointF(tx + 24, 206));
+                    ctx.DrawText(tiles[i].Label.ToUpperInvariant(), Bold(20), Muted, new PointF(tx + 24, 274));
+                }
+
+                // Zeitstrahl
+                var y = 350f;
+                ctx.DrawText("ZEITSTRAHL", Bold(24), Muted, new PointF(48, y));
+                var lx = W - 48 - 560f;
+                foreach (var (tone2, label) in new[] { (Tone.Green, "Fang"), (Tone.Yellow, "Verpasst"), (Tone.Red, "Tod") })
+                {
+                    RoundedRect(ctx, lx, y + 6, 14, 14, 3, ToColor(tone2));
+                    ctx.DrawText(label, Regular(20), Muted, new PointF(lx + 22, y));
+                    lx += 22 + Width(label, Regular(20)) + 28;
+                }
+
+                var barY = y + 90;
+                const float X0 = 80, X1 = W - 80;
+                float At(DateTime t) => X0 + (X1 - X0) * (float)Math.Clamp((t - start).TotalHours / total, 0, 1);
+
+                RoundedRect(ctx, X0, barY - 4, X1 - X0, 8, 4, PanelAlt);
+                foreach (var e in encounters.OrderBy(e => e.CreatedAt))
+                {
+                    var color = ToColor(e.Status == EncounterStatus.Gefangen ? Tone.Green : Tone.Yellow);
+                    ctx.DrawLine(color, 4, new PointF(At(e.CreatedAt), barY - 18), new PointF(At(e.CreatedAt), barY + 18));
+                }
+                for (var i = 0; i < deaths.Count; i++)
+                    NumberBadge(ctx, At(deaths[i].DiedAt!.Value), barY, i + 1);
+
+                ctx.DrawText("Start", Regular(20), Muted, new PointF(X0, barY + 34));
+                var endLabel = run.Status == RunStatus.Aktiv ? "Jetzt" : "Ende";
+                ctx.DrawText(endLabel, Regular(20), Muted, new PointF(X1 - Width(endLabel, Regular(20)), barY + 34));
+
+                // Spieler
+                y = barY + 90;
+                ctx.DrawText("SPIELER", Bold(24), Muted, new PointF(48, y));
+                (string Head, Tone Tone)[] heads = [("Gefangen", Tone.Blue), ("Verpasst", Tone.Yellow), ("Tode", Tone.Red)];
+                for (var i = 0; i < heads.Length; i++)
+                {
+                    var right = 700 + i * 170;
+                    var head = heads[i].Head.ToUpperInvariant();
+                    ctx.DrawText(head, Bold(20), ToColor(heads[i].Tone), new PointF(right - Width(head, Bold(20)), y + 4));
+                }
+                y += 44;
+                for (var r = 0; r < stats.Count; r++)
+                {
+                    RoundedRect(ctx, 32, y + 4, W - 64, 52, 12, r % 2 == 0 ? Panel : PanelAlt);
+                    ctx.DrawText(Fit(stats[r].Name, Bold(28), 380), Bold(28), Text, new PointF(56, y + 14));
+                    int[] values = [stats[r].Caught, stats[r].Missed, stats[r].Deaths];
+                    for (var i = 0; i < values.Length; i++)
+                    {
+                        var v = values[i].ToString();
+                        var right = 700 + i * 170;
+                        ctx.DrawText(v, Bold(30), values[i] == 0 ? Muted : ToColor(heads[i].Tone),
+                            new PointF(right - Width(v, Bold(30)), y + 12));
+                    }
+                    y += 60;
+                }
+
+                // Friedhof
+                y += 30;
+                ctx.DrawText("FRIEDHOF", Bold(24), Muted, new PointF(48, y));
+                y += 44;
+                if (shown.Count == 0)
+                {
+                    ctx.DrawText("Niemand gestorben – Respekt!", Regular(28), Muted, new PointF(56, y + 20));
+                    y += 96;
+                }
+
+                for (var i = 0; i < shown.Count; i++)
+                {
+                    var link = shown[i];
+                    RoundedRect(ctx, 32, y + 6, W - 64, 84, 14, i % 2 == 0 ? Panel : PanelAlt);
+                    NumberBadge(ctx, 70, y + 48, i + 1);
+
+                    var caught = link.Encounters.Where(e => e.Status == EncounterStatus.Gefangen)
+                        .OrderBy(e => e.PlayerId).Take(4).ToList();
+                    var spritesX = W - 56 - caught.Count * 84;
+
+                    ctx.DrawText(Fit(link.Route, Bold(28), spritesX - 140), Bold(28), Text, new PointF(112, y + 16));
+                    var info = $"{FormatElapsed(link.DiedAt!.Value - start)} · {link.DeathCause}" +
+                               (link.CausedByPlayer is null ? "" : $" ({link.CausedByPlayer.Name})");
+                    ctx.DrawText(Fit(info, Regular(21), spritesX - 140), Regular(21), Muted, new PointF(112, y + 54));
+
+                    foreach (var e in caught)
+                    {
+                        if (sprites.GetValueOrDefault(e.Species) is { } sprite)
+                        {
+                            using var scaled = Scale(sprite, 72, grayscale: true);
+                            ctx.DrawImage(scaled, new Point(spritesX + (84 - scaled.Width) / 2, (int)(y + 48 - scaled.Height / 2f)), 1f);
+                        }
+                        spritesX += 84;
+                    }
+                    y += 96;
+                }
+
+                if (deaths.Count > MaxDeaths)
+                    ctx.DrawText($"+ {deaths.Count - MaxDeaths} weitere", Regular(22), Muted, new PointF(56, y + 6));
+            });
+
+            return await ToPngAsync(img);
+        });
+
+    /// <summary>Roter Kreis mit Nummer (Zeitstrahl und Friedhof).</summary>
+    private void NumberBadge(IImageProcessingContext ctx, float cx, float cy, int number)
+    {
+        ctx.Fill(ToColor(Tone.Red), new EllipseShape(cx, cy, 36, 36));
+        var text = number.ToString();
+        ctx.DrawText(text, Bold(18), Text, new PointF(cx - Width(text, Bold(18)) / 2, cy - 11));
+    }
+
+    /// <summary>"3 Tagen", "5 Stunden", "40 Minuten" bzw. kompakt "3 T 5 h".</summary>
+    private static string FormatDuration(TimeSpan span, bool compact = false)
+    {
+        if (compact)
+            return span.TotalDays >= 1 ? $"{(int)span.TotalDays} T {span.Hours} h"
+                : span.TotalHours >= 1 ? $"{(int)span.TotalHours} h {span.Minutes} m"
+                : $"{Math.Max(1, span.Minutes)} m";
+
+        return span.TotalDays >= 1 ? $"{(int)span.TotalDays} {((int)span.TotalDays == 1 ? "Tag" : "Tagen")}"
+            : span.TotalHours >= 1 ? $"{(int)span.TotalHours} {((int)span.TotalHours == 1 ? "Stunde" : "Stunden")}"
+            : $"{Math.Max(1, span.Minutes)} Minuten";
+    }
+
+    /// <summary>Zeit seit Run-Start, z. B. "+1T 4h" oder "+3h 12m".</summary>
+    private static string FormatElapsed(TimeSpan span) =>
+        span.TotalDays >= 1 ? $"+{(int)span.TotalDays}T {span.Hours}h"
+        : span.TotalHours >= 1 ? $"+{(int)span.TotalHours}h {span.Minutes}m"
+        : $"+{Math.Max(0, span.Minutes)}m";
 
     // ---------------------------------------------------------------- Bausteine
 

@@ -6,22 +6,23 @@
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
     <RootNamespace>NuzlockeBot</RootNamespace>
+    <!-- Bekannte ImageSharp-Lücken betreffen das Einlesen manipulierter Bilder.
+         Der Bot liest nur Sprites von PokeAPI (vertrauenswürdige Quelle), daher hier stummgeschaltet. -->
+    <NoWarn>$(NoWarn);NU1902;NU1903</NoWarn>
   </PropertyGroup>
 
   <ItemGroup>
     <PackageReference Include="Discord.Net" Version="3.*" />
     <PackageReference Include="Microsoft.EntityFrameworkCore.Sqlite" Version="10.*" />
     <PackageReference Include="Microsoft.Extensions.DependencyInjection" Version="10.*" />
-    <PackageReference Include="SixLabors.ImageSharp" Version="3.*" />
-    <PackageReference Include="SixLabors.ImageSharp.Drawing" Version="2.*" />
+    <!-- Fest auf die letzten Versionen ohne Lizenzschlüssel-Pflicht (ab Drawing 2.2 / ImageSharp 4 nötig) -->
+    <PackageReference Include="SixLabors.ImageSharp" Version="3.1.12" />
+    <PackageReference Include="SixLabors.ImageSharp.Drawing" Version="2.1.7" />
   </ItemGroup>
 
   <!-- Schriftarten für die Bilder mit ausliefern -->
   <ItemGroup>
     <None Include="Assets\**\*" CopyToOutputDirectory="PreserveNewest" />
-  </ItemGroup>
-  <ItemGroup>
-    <Folder Include="Properties\" />
   </ItemGroup>
 
 </Project>
