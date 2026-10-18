@@ -1,42 +1,131 @@
-# Nuzlocke Soul-Link Bot (Pokémon Schwarz)
+# Nuzlocke Soul-Link Bot
 
-Discord-Bot zum Dokumentieren einer Soul-Link-Nuzlocke-Randomizer-Challenge.
-Jeder spielt seinen eigenen Spielstand, die Pokémon einer Route sind aber über alle Spieler verknüpft:
-**Stirbt eins, sterben alle Partner auf dieser Route.**
+![.NET](https://img.shields.io/badge/.NET-10-512BD4?logo=dotnet&logoColor=white)
+![C#](https://img.shields.io/badge/C%23-239120?logo=csharp&logoColor=white)
+![Discord.Net](https://img.shields.io/badge/Discord.Net-3.x-5865F2?logo=discord&logoColor=white)
+![SQLite](https://img.shields.io/badge/SQLite-EF%20Core-003B57?logo=sqlite&logoColor=white)
+![License](https://img.shields.io/badge/Lizenz-MIT-green)
 
-## Regeln, die der Bot abbildet
+Ein Discord-Bot, der eine **Pokémon-Schwarz-Nuzlocke-Randomizer-Challenge im Soul-Link-Modus** für eine
+Gruppe von Spielern dokumentiert – mit Regelprüfung, Statistiken, Erfolgen und zur Laufzeit generierten Bildern.
 
-| Situation | Was passiert |
+> **Soul Link:** Jeder spielt seinen eigenen Spielstand, aber die Pokémon derselben Route sind über alle
+> Spieler verknüpft. Stirbt eins, sterben alle Partner auf dieser Route.
+
+<!--
+  Screenshots: Bilder in den Ordner docs/ legen und die Dateinamen hier anpassen.
+  Gute Motive: ein Fang- oder Tod-Banner, /status (Board), /tabelle global, das /menu-Bedienfeld.
+-->
+<p align="center">
+  <img src="docs/fang.png" width="49%" alt="Fang-Banner">
+  <img src="docs/tod.png" width="49%" alt="Tod-Banner">
+</p>
+<p align="center">
+  <img src="docs/status.png" width="49%" alt="Status-Board">
+  <img src="docs/tabelle.png" width="49%" alt="Tabelle">
+</p>
+
+---
+
+## Features
+
+- **Soul-Link-Logik** – Fänge, verpasste Encounter und Tode werden pro Route über alle Spieler verknüpft.
+  Ein Tod beendet automatisch den ganzen Link, ein verpasster Encounter macht die Partner unbrauchbar.
+- **Regelprüfung** – nur ein Encounter pro Route und Spieler, nur gültige Routen und nur Pokémon,
+  die es in Schwarz gibt (alle 649). Bei Vertippern schlägt der Bot ähnliche Namen vor.
+- **Run-Verwaltung** – Runs starten und beenden, verbrauchte Runs zählen, Historie aller Versuche.
+- **Generierte Bilder** – Banner mit den Sprites aller Soul-Link-Partner, ein Status-Board pro Run und
+  große Statistik-Tabellen, gezeichnet zur Laufzeit.
+- **Statistiken** – pro Run und über alle Runs: lebende Pokémon, Fänge, ausgelöste Tode, verpasste Encounter.
+- **16 Erfolge & 5 Titel** – z. B. *Legendär*, *Blitzkrieg*, *Wipe-Verursacher*; Titel wie *Pechvogel*
+  wandern automatisch zum aktuell Führenden.
+- **Zwei Bedienwege** – Slash-Commands mit Autocomplete oder ein Bedienfeld mit Buttons,
+  Auswahlmenüs und Formularen (`/menu`).
+- **Eigene Routen** – z. B. für Static- oder Geschenk-Pokémon, für alle Spieler sichtbar.
+- **Korrekturen** – Vertipper und versehentliche Tode lassen sich rückgängig machen.
+
+## Tech-Stack
+
+| Bereich | Technologie |
 |---|---|
-| `/fang` | Pro Spieler und Route nur ein Encounter. Auf toten Routen geht nichts mehr. |
-| `/verpasst` | Der Soul Link der Route ist **gebrochen** 🟡 – gefangene Partner sind nicht nutzbar. |
-| `/tod` | Der ganze Soul Link ist **tot** 💀 – bei allen Spielern. Ursache und Auslöser werden gespeichert. |
-| `/run ende` | Run ist abgeschlossen und zählt als verbraucht. Neuer Versuch mit `/run start`. |
+| Sprache / Runtime | C#, .NET 10 |
+| Discord | [Discord.Net](https://github.com/discord-net/Discord.Net) – Slash-Commands, Autocomplete, Buttons, Modals |
+| Datenbank | SQLite mit Entity Framework Core |
+| Bilder | [ImageSharp](https://github.com/SixLabors/ImageSharp) + ImageSharp.Drawing |
+| Sprites | [PokeAPI/sprites](https://github.com/PokeAPI/sprites) (zur Laufzeit geladen, gecacht) |
+| Hosting | Linux-Container (Proxmox LXC) als systemd-Dienst |
 
-## Bedienfeld
+## Architektur
 
-`/menu` postet eine Nachricht mit Buttons für alles – am besten in einem eigenen Kanal posten und anpinnen.
-Die Buttons funktionieren dauerhaft, auch nach einem Neustart des Bots.
+```mermaid
+flowchart LR
+    D[Discord] -->|Slash-Command / Button / Modal| M[Modules]
+    M --> B[NuzlockeModuleBase<br/>gemeinsame Aktionen]
+    B --> R[RunService<br/>Spielregeln]
+    B --> A[AchievementService<br/>Erfolge & Titel]
+    B --> C[CardFactory]
+    C --> I[ImageRenderer<br/>Banner, Board, Tabelle]
+    I -->|Sprites| P[(PokeAPI)]
+    R --> DB[(SQLite)]
+    A --> DB
+```
 
-| Button | Ablauf |
+### Datenmodell
+
+```mermaid
+erDiagram
+    Player ||--o{ RunParticipant : "spielt mit"
+    Run ||--o{ RunParticipant : hat
+    Run ||--o{ RouteLink : "hat (1 pro Route)"
+    RouteLink ||--o{ Encounter : "1 pro Spieler"
+    Player ||--o{ Encounter : fängt
+    Player ||--o{ PlayerAchievement : schaltet frei
+```
+
+Ein **`RouteLink`** ist der Soul Link einer Route in einem Run. Er bündelt die Encounter aller Spieler und hat
+einen Status (*lebendig*, *gebrochen*, *tot*). Dadurch reicht ein einziger Statuswechsel, damit alle Partner sterben.
+
+### Designentscheidungen
+
+- **Regeln in der Datenbank abgesichert** – eindeutige Indizes (eine Route pro Run, ein Encounter pro Spieler
+  und Route) verhindern doppelte Einträge auch bei gleichzeitigen Eingaben.
+- **Eine Logik, zwei Oberflächen** – Slash-Commands und Bedienfeld rufen dieselben Methoden in
+  `NuzlockeModuleBase` auf, statt Logik doppelt zu pflegen.
+- **Fehler für Nutzer vs. Bugs** – Regelverstöße werfen eine `NuzlockeException` und erscheinen nur für den
+  Aufrufer; unerwartete Fehler werden zentral geloggt.
+- **Bilder mit Fallback** – Discord verlangt eine Antwort innerhalb von 3 Sekunden. Der Bot bestätigt deshalb
+  zuerst, rendert dann und reicht das Bild nach. Schlägt das Rendern fehl, kommt die Nachricht als Text.
+- **Minimale Rechte** – keine privilegierten Gateway-Intents, der Bot liest keine Nachrichteninhalte.
+
+## Commands
+
+<details>
+<summary><b>Alle Commands anzeigen</b></summary>
+
+| Command | Zweck |
 |---|---|
-| 🎯 Fang | Route aus Liste wählen → Formular mit Pokémon (Name oder Dex-Nr.) und Spitzname |
-| 🟡 Verpasst | Route aus Liste wählen → fertig |
-| 💀 Tod | Eigenes lebendes Pokémon wählen → Formular mit Ursache |
-| 📋 Status · 📊 Tabelle · 🪦 Friedhof · 🏅 Erfolge | Übersicht, nur für dich sichtbar |
-| ➕ Beitreten · ▶️ Run starten · ⏹️ Run beenden · 🗺️ Route erstellen | Verwaltung |
+| `/menu` | Bedienfeld mit Buttons posten |
+| `/spieler beitreten [name]` · `verlassen` · `liste` | Mitspieler verwalten |
+| `/run start` · `/run ende ergebnis [grund]` · `/run liste` | Runs verwalten, Historie anzeigen |
+| `/fang route pokemon [spitzname]` | Fang eintragen |
+| `/verpasst route [pokemon]` | Encounter verpasst → Soul Link gebrochen |
+| `/tod route ursache` | Pokémon gestorben → ganzer Soul Link tot |
+| `/status [run]` | Board mit allen Routen und Pokémon |
+| `/friedhof [run]` | Alle toten Soul Links |
+| `/tabelle run [nummer]` · `/tabelle global` | Statistik pro Spieler |
+| `/erfolge [spieler]` · `/titel` | Erfolge und aktuelle Titelträger |
+| `/route erstellen name` · `loeschen` · `liste` | Eigene Routen (Statics, Geschenke) |
+| `/korrektur fang-loeschen route` · `tod-zuruecknehmen route` | Fehler korrigieren |
 
-Ergebnisse (Fang, Tod, …) landen wie bei den Slash-Commands öffentlich im Kanal. Discord-Auswahllisten
-zeigen max. 25 Einträge – für spätere Routen gibt es zusätzlich die Slash-Commands mit Suche.
+</details>
 
-## Erfolge & Titel
-
-Erfolge werden nach jeder Aktion geprüft und im Kanal verkündet. Einmal freigeschaltet, bleiben sie.
+<details>
+<summary><b>Alle Erfolge anzeigen</b></summary>
 
 | Erfolg | Bedingung |
 |---|---|
 | 🎣 Erster Fang · 📦 Hamster · 📕 Pokédex-Forscher | 1 · 25 · 100 Fänge |
-| 🐉 Legendär | Legendäres/mysteriöses Pokémon gefangen |
+| 🐉 Legendär | Legendäres oder mysteriöses Pokémon gefangen |
 | 🌱 Starter-Sammler | Starter einer beliebigen Generation gefangen (nicht am Start) |
 | 🗺️ Entdecker | Fang auf einer eigenen Route |
 | 👥 Volles Team | 6 lebende Soul Links gleichzeitig |
@@ -48,105 +137,82 @@ Erfolge werden nach jeder Aktion geprüft und im Kanal verkündet. Einmal freige
 | 🔁 Stammgast · 🧱 Unkaputtbar | 5 · 10 Runs gespielt |
 | 🏆 Champion | Run geschafft |
 
-**Titel** gehören immer dem aktuell Führenden: 💀 Pechvogel (meiste Tode), 🎣 Meisterfänger (meiste Fänge),
-🙈 Grobmotoriker (meiste verpasst), 🛡️ Schutzengel (wenigste Tode pro Fang, ab 5 Fängen), 🏅 Trophäenjäger (meiste Erfolge).
+**Titel:** 💀 Pechvogel · 🎣 Meisterfänger · 🙈 Grobmotoriker · 🛡️ Schutzengel · 🏅 Trophäenjäger
 
-Eigene Erfolge ergänzen: `AchievementService.All` um eine Zeile erweitern.
+</details>
 
-## Bilder
+## Projektstruktur
 
-Der Bot zeichnet die Bilder selbst (`Services/ImageRenderer.cs`, mit ImageSharp – läuft auch auf dem Raspberry Pi):
-
-| Nachricht | Bild |
-|---|---|
-| Fang · Verpasst · Tod | Banner mit Route und den Sprites aller Soul-Link-Partner (bei Tod in Grau) |
-| Run start · Run ende | Banner, beim Ende zusätzlich das Board des Runs |
-| `/status` · `/friedhof` | Board: jede Route eine Zeile, pro Spieler Sprite + Name |
-| `/tabelle run` · `/tabelle global` · `/titel` | Große Tabelle in Farbe |
-| Erfolg freigeschaltet · `/menu` | Banner |
-
-- Sprites: animierte bzw. statische Schwarz/Weiß-Sprites von PokeAPI auf GitHub, werden nach dem ersten Laden zwischengespeichert.
-- Schrift: DejaVu Sans in `Assets/Fonts` (freie Lizenz, liegt bei).
-- Kann ein Bild nicht erzeugt werden (z. B. kein Internet), kommt die Nachricht wie früher als reiner Text.
-- Farben und Größen stehen oben in `ImageRenderer.cs`.
-- ImageSharp ist für private Projekte kostenlos (Six Labors Split License).
-
-## Commands
-
-| Command | Zweck |
-|---|---|
-| `/spieler beitreten [name]` | Als Mitspieler eintragen (gilt ab dem nächsten Run) |
-| `/spieler verlassen` · `/spieler liste` | Austragen · alle Mitspieler anzeigen |
-| `/run start` | Neuen Run mit allen eingetragenen Spielern starten |
-| `/run ende ergebnis [grund]` | Run beenden (gescheitert / geschafft / abgebrochen) |
-| `/run liste` | Alle Runs, Anzahl verbrauchter Runs, häufigste Todesursache, wer die meisten Tode ausgelöst hat |
-| `/fang route pokemon [spitzname]` | Fang eintragen |
-| `/verpasst route [pokemon]` | Encounter verpasst |
-| `/tod route ursache` | Eigenes Pokémon gestorben → ganzer Link tot |
-| `/status [run]` | Übersicht aller Routen mit den Pokémon aller Spieler |
-| `/friedhof [run]` | Alle toten Soul Links mit Ursache und Datum |
-| `/route erstellen name` | Eigene Route anlegen (z. B. Static-Pokémon) – erscheint bei allen, gilt für alle Runs |
-| `/route loeschen name` · `/route liste` | Eigene Route entfernen · alle eigenen Routen anzeigen |
-| `/tabelle run [nummer]` | Tabelle pro Spieler: Lebend, Gefangen, Tode, Verpasst für einen Run |
-| `/tabelle global` | Dieselbe Tabelle über alle Runs (plus Anzahl Runs pro Spieler) |
-| `/menu` | Bedienfeld mit Buttons posten |
-| `/erfolge [spieler]` | Freigeschaltete und gesperrte Erfolge |
-| `/titel` | Aktuelle Titelträger und Erfolge aller Spieler |
-| `/korrektur fang-loeschen route` | Eigenen Encounter löschen (Vertipper) |
-| `/korrektur tod-zuruecknehmen route` | Versehentlichen Tod rückgängig machen |
-
-**Routen:** Autocomplete zeigt zuerst Routen, auf denen deine Partner schon etwas haben, dann eigene
-Routen, dann die Standardliste aus `Data/Routes.cs`. Unbekannte Routen werden abgelehnt (schützt vor
-Vertippern) – für Statics usw. vorher `/route erstellen`.
-
-**Pokémon:** Auswahl aus allen 649 Pokémon, die es in Schwarz gibt (Gen. 1–5, `Data/Pokedex.cs`).
-Suche per Name oder Dex-Nummer. Bei Vertippern schlägt der Bot ähnliche Namen vor.
-
-**Tabelle:** „Tode“ zählt die Soul Links, deren Tod der Spieler ausgelöst hat. „Lebend“ sind die aktuell
-nutzbaren Pokémon (in `/tabelle global` die des laufenden Runs).
-
-Bei `/tod` siehst du nur deine eigenen lebenden Pokémon.
+```
+├── Program.cs                     Start, Dependency Injection, Command-Registrierung, Fehlerbehandlung
+├── Data/
+│   ├── Entities.cs                Datenmodell
+│   ├── NuzlockeDbContext.cs       EF Core, Indizes, Schema-Upgrade
+│   ├── Pokedex.cs                 Alle 649 Pokémon aus Schwarz (deutsche Namen)
+│   └── Routes.cs                  Routen von Pokémon Schwarz
+├── Services/
+│   ├── RunService.cs              Spiellogik und Regeln
+│   ├── AchievementService.cs      Erfolge und Titel
+│   ├── ImageRenderer.cs           Zeichnet Banner, Boards und Tabellen
+│   ├── CardFactory.cs             Kombiniert Embed + Bild zu einer Nachricht
+│   └── Formatting.cs              Texte und Embeds
+├── Modules/                       Slash-Commands, Buttons, Modals, Autocomplete
+└── Assets/Fonts/                  Schriftart für die Bilder
+```
 
 ## Einrichtung
 
-### 1. Bot im Discord Developer Portal anlegen
-1. <https://discord.com/developers/applications> → **New Application**
+### 1. Discord-Bot anlegen
+
+1. Im [Discord Developer Portal](https://discord.com/developers/applications) eine **New Application** erstellen
 2. Reiter **Bot** → **Reset Token** → Token kopieren (geheim halten!)
-3. Reiter **OAuth2 → URL Generator**: Scopes `bot` und `applications.commands`, Permission `Send Messages`
-4. Generierten Link öffnen und den Bot auf euren Server einladen
+3. Reiter **OAuth2 → URL Generator**: Scopes `bot` + `applications.commands`, Permission `Send Messages`
+4. Den generierten Link öffnen und den Bot auf den Server einladen
 
-Privilegierte Intents werden **nicht** benötigt.
+### 2. Lokal starten
 
-### 2. Starten
+Voraussetzung: [.NET 10 SDK](https://dotnet.microsoft.com/download)
 
-Benötigt das .NET 10 SDK (für .NET 8: in `NuzlockeBot.csproj` `net8.0` und die EF-Version `8.*` eintragen).
+Datei `Properties/launchSettings.json` anlegen (ist in `.gitignore` und wird nicht committet):
 
-```powershell
-# Windows (PowerShell)
-$env:DISCORD_TOKEN = "dein-token"
-$env:DISCORD_GUILD_ID = "123456789012345678"   # optional, Server-ID
-dotnet run
+```json
+{
+  "profiles": {
+    "NuzlockeBot": {
+      "commandName": "Project",
+      "environmentVariables": {
+        "DISCORD_TOKEN": "dein-bot-token",
+        "DISCORD_GUILD_ID": "deine-server-id"
+      }
+    }
+  }
+}
 ```
 
 ```bash
-# Linux / Raspberry Pi
-export DISCORD_TOKEN="dein-token"
-export DISCORD_GUILD_ID="123456789012345678"
 dotnet run
 ```
 
 | Variable | Pflicht | Bedeutung |
 |---|---|---|
 | `DISCORD_TOKEN` | ja | Bot-Token |
-| `DISCORD_GUILD_ID` | nein | Registriert die Commands nur auf diesem Server – **sofort** sichtbar. Ohne: global. |
+| `DISCORD_GUILD_ID` | nein | Commands nur auf diesem Server registrieren – sofort sichtbar |
 | `NUZLOCKE_DB` | nein | Pfad zur SQLite-Datei (Standard: `nuzlocke.db`) |
 
-Server-ID: In Discord unter *Einstellungen → Erweitert* den Entwicklermodus aktivieren, dann Rechtsklick auf den Server → *Server-ID kopieren*.
-
-### 3. Dauerhaft laufen lassen (z. B. Raspberry Pi)
+### 3. Auf einem Linux-Server betreiben (z. B. Proxmox LXC)
 
 ```bash
-dotnet publish -c Release -r linux-arm64 --self-contained -o ./publish
+# Auf dem Entwicklungsrechner: eigenständig lauffähig bauen (.NET muss auf dem Server nicht installiert sein)
+dotnet publish -c Release -r linux-x64 --self-contained -o ./publish
+```
+
+Auf dem Server (Debian):
+
+```bash
+apt install -y libicu-dev
+# Inhalt von ./publish nach /opt/nuzlockebot kopieren, dann:
+printf 'DISCORD_TOKEN=...\nDISCORD_GUILD_ID=...\n' > /opt/nuzlockebot/bot.env
+chmod 600 /opt/nuzlockebot/bot.env
 ```
 
 `/etc/systemd/system/nuzlockebot.service`:
@@ -155,39 +221,32 @@ dotnet publish -c Release -r linux-arm64 --self-contained -o ./publish
 [Unit]
 Description=Nuzlocke Discord Bot
 After=network-online.target
+Wants=network-online.target
 
 [Service]
-WorkingDirectory=/home/pi/nuzlockebot
-ExecStart=/home/pi/nuzlockebot/NuzlockeBot
-Environment=DISCORD_TOKEN=dein-token
-Environment=DISCORD_GUILD_ID=123456789012345678
+WorkingDirectory=/opt/nuzlockebot
+ExecStart=/opt/nuzlockebot/NuzlockeBot
+EnvironmentFile=/opt/nuzlockebot/bot.env
 Restart=always
+RestartSec=10
 
 [Install]
 WantedBy=multi-user.target
 ```
 
 ```bash
-sudo systemctl enable --now nuzlockebot
+systemctl enable --now nuzlockebot
+journalctl -u nuzlockebot -f   # Logs ansehen
 ```
 
-## Projektaufbau
+## Danksagungen & Lizenzen
 
-```
-Program.cs                    Start, DI, Command-Registrierung, Fehlerbehandlung
-Data/Entities.cs              Player, Run, RunParticipant, RouteLink (Soul Link), Encounter
-Data/NuzlockeDbContext.cs     EF Core + SQLite, eindeutige Indizes für die Nuzlocke-Regeln
-Data/Routes.cs                Routenliste für das Autocomplete
-Data/Pokedex.cs               Alle 649 Pokémon aus Schwarz (deutsche Namen)
-Services/RunService.cs        Komplette Spiellogik (Regeln, Soul-Link-Tod, Korrekturen)
-Services/AchievementService.cs Erfolge und Titel
-Services/Formatting.cs        Embeds, Texte und Bild-URLs
-Services/ImageRenderer.cs     Zeichnet Banner, Boards und Tabellen
-Services/CardFactory.cs       Baut aus Embed + Bild die fertigen Nachrichten
-Assets/Fonts/                 Schriftart für die Bilder
-Modules/*.cs                  Slash-Commands
-```
+- Sprites: [PokeAPI/sprites](https://github.com/PokeAPI/sprites) – werden nicht im Repository gespeichert
+- Schriftart: [DejaVu Sans](https://dejavu-fonts.github.io/) (freie Lizenz, siehe `Assets/Fonts/LICENSE_DEJAVU`)
+- [ImageSharp](https://github.com/SixLabors/ImageSharp) unter der Six Labors Split License (kostenlos für Open Source)
+- Pokémon und alle zugehörigen Namen sind Marken von Nintendo, Game Freak und The Pokémon Company.
+  Dies ist ein nicht-kommerzielles Fan-Projekt ohne Verbindung zu diesen Unternehmen.
 
-Die Datenbank wird beim ersten Start per `EnsureCreated()` angelegt. Wenn du später das Datenmodell
-änderst, entweder die `nuzlocke.db` löschen oder auf EF-Migrations umsteigen
-(`dotnet ef migrations add Init`, dann in `Program.cs` `EnsureCreatedAsync()` durch `MigrateAsync()` ersetzen).
+## Lizenz
+
+[MIT](LICENSE)
