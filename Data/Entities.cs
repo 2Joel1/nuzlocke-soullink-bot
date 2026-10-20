@@ -108,6 +108,48 @@ public class CustomRoute
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
 }
 
+public enum HighlightKind
+{
+    Fang,
+    Verpasst,
+    Tod
+}
+
+/// <summary>
+/// Ein besonderer Moment: ein Fang oder verpasster Encounter (<see cref="EncounterId"/>)
+/// oder ein Soul-Link-Tod (<see cref="RouteLinkId"/>). Jeder Spieler kann einen Stern vergeben.
+/// </summary>
+public class Highlight
+{
+    public int Id { get; set; }
+    public long GuildId { get; set; }
+    public int RunId { get; set; }
+    public Run Run { get; set; } = null!;
+    public HighlightKind Kind { get; set; }
+
+    public int? EncounterId { get; set; }
+    public Encounter? Encounter { get; set; }
+    public int? RouteLinkId { get; set; }
+    public RouteLink? RouteLink { get; set; }
+
+    public string? Note { get; set; }
+    public int CreatedByPlayerId { get; set; }
+    public Player CreatedByPlayer { get; set; } = null!;
+    public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
+
+    public List<HighlightStar> Stars { get; set; } = [];
+}
+
+public class HighlightStar
+{
+    public int Id { get; set; }
+    public int HighlightId { get; set; }
+    public Highlight Highlight { get; set; } = null!;
+    public int PlayerId { get; set; }
+    public Player Player { get; set; } = null!;
+    public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
+}
+
 /// <summary>Die Live-Statusnachricht eines Servers (eine pro Server).</summary>
 public class LiveMessage
 {

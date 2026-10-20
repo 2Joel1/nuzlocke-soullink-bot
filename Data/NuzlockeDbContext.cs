@@ -13,6 +13,8 @@ public class NuzlockeDbContext(DbContextOptions<NuzlockeDbContext> options) : Db
     public DbSet<PlayerAchievement> PlayerAchievements => Set<PlayerAchievement>();
     public DbSet<LiveMessage> LiveMessages => Set<LiveMessage>();
     public DbSet<ArenaClear> ArenaClears => Set<ArenaClear>();
+    public DbSet<Highlight> Highlights => Set<Highlight>();
+    public DbSet<HighlightStar> HighlightStars => Set<HighlightStar>();
 
     /// <summary>
     /// Legt Tabellen an, die nach dem ersten Start dazugekommen sind.
@@ -48,6 +50,35 @@ public class NuzlockeDbContext(DbContextOptions<NuzlockeDbContext> options) : Db
                 CONSTRAINT "FK_ArenaClears_Runs_RunId" FOREIGN KEY ("RunId") REFERENCES "Runs" ("Id") ON DELETE CASCADE
             );
             CREATE UNIQUE INDEX IF NOT EXISTS "IX_ArenaClears_RunId_Nr" ON "ArenaClears" ("RunId", "Nr");
+
+            CREATE TABLE IF NOT EXISTS "Highlights" (
+                "Id" INTEGER NOT NULL CONSTRAINT "PK_Highlights" PRIMARY KEY AUTOINCREMENT,
+                "GuildId" INTEGER NOT NULL,
+                "RunId" INTEGER NOT NULL,
+                "Kind" INTEGER NOT NULL,
+                "EncounterId" INTEGER NULL,
+                "RouteLinkId" INTEGER NULL,
+                "Note" TEXT NULL,
+                "CreatedByPlayerId" INTEGER NOT NULL,
+                "CreatedAt" TEXT NOT NULL,
+                CONSTRAINT "FK_Highlights_Runs_RunId" FOREIGN KEY ("RunId") REFERENCES "Runs" ("Id") ON DELETE CASCADE,
+                CONSTRAINT "FK_Highlights_Encounters_EncounterId" FOREIGN KEY ("EncounterId") REFERENCES "Encounters" ("Id") ON DELETE CASCADE,
+                CONSTRAINT "FK_Highlights_RouteLinks_RouteLinkId" FOREIGN KEY ("RouteLinkId") REFERENCES "RouteLinks" ("Id") ON DELETE CASCADE,
+                CONSTRAINT "FK_Highlights_Players_CreatedByPlayerId" FOREIGN KEY ("CreatedByPlayerId") REFERENCES "Players" ("Id") ON DELETE CASCADE
+            );
+            CREATE INDEX IF NOT EXISTS "IX_Highlights_GuildId" ON "Highlights" ("GuildId");
+            CREATE INDEX IF NOT EXISTS "IX_Highlights_EncounterId" ON "Highlights" ("EncounterId");
+            CREATE INDEX IF NOT EXISTS "IX_Highlights_RouteLinkId" ON "Highlights" ("RouteLinkId");
+
+            CREATE TABLE IF NOT EXISTS "HighlightStars" (
+                "Id" INTEGER NOT NULL CONSTRAINT "PK_HighlightStars" PRIMARY KEY AUTOINCREMENT,
+                "HighlightId" INTEGER NOT NULL,
+                "PlayerId" INTEGER NOT NULL,
+                "CreatedAt" TEXT NOT NULL,
+                CONSTRAINT "FK_HighlightStars_Highlights_HighlightId" FOREIGN KEY ("HighlightId") REFERENCES "Highlights" ("Id") ON DELETE CASCADE,
+                CONSTRAINT "FK_HighlightStars_Players_PlayerId" FOREIGN KEY ("PlayerId") REFERENCES "Players" ("Id") ON DELETE CASCADE
+            );
+            CREATE UNIQUE INDEX IF NOT EXISTS "IX_HighlightStars_HighlightId_PlayerId" ON "HighlightStars" ("HighlightId", "PlayerId");
 
             CREATE TABLE IF NOT EXISTS "LiveMessages" (
                 "GuildId" INTEGER NOT NULL CONSTRAINT "PK_LiveMessages" PRIMARY KEY,
@@ -107,6 +138,13 @@ public class NuzlockeDbContext(DbContextOptions<NuzlockeDbContext> options) : Db
         b.Entity<ArenaClear>()
             .HasIndex(a => new { a.RunId, a.Nr })
             .IsUnique();
+
+        // Highlights verschwinden automatisch, wenn das Ereignis per Korrektur gelöscht wird
+        b.Entity<Highlight>().HasIndex(h => h.GuildId);
+        b.Entity<Highlight>().HasOne(h => h.Encounter).WithMany().HasForeignKey(h => h.EncounterId).OnDelete(DeleteBehavior.Cascade);
+        b.Entity<Highlight>().HasOne(h => h.RouteLink).WithMany().HasForeignKey(h => h.RouteLinkId).OnDelete(DeleteBehavior.Cascade);
+        b.Entity<Highlight>().HasOne(h => h.CreatedByPlayer).WithMany().HasForeignKey(h => h.CreatedByPlayerId);
+        b.Entity<HighlightStar>().HasIndex(s => new { s.HighlightId, s.PlayerId }).IsUnique();
 
         b.Entity<LiveMessage>().HasKey(m => m.GuildId);
         b.Entity<LiveMessage>().Property(m => m.GuildId).ValueGeneratedNever();

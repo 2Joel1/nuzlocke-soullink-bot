@@ -34,7 +34,7 @@ public static class CardExtensions
 }
 
 /// <summary>Baut die Karten für alle Nachrichten mit Bild.</summary>
-public class CardFactory(ImageRenderer renderer)
+public class CardFactory(ImageRenderer renderer, HighlightService highlights)
 {
     private static List<BannerMon> CaughtMons(Run run, RouteLink link) =>
         run.Participants.OrderBy(p => p.PlayerId)
@@ -217,6 +217,12 @@ public class CardFactory(ImageRenderer renderer)
                 _ => Formatting.Grey
             });
 
+        var top = await highlights.TopForRunAsync((ulong)run.GuildId, run.Number, 3);
+        if (top.Count > 0)
+            embed.AddField("⭐ Highlights des Runs",
+                string.Join("\n", top.Select(h => $"**{h.Stars}★** {h.Title} ({h.Owner}, {h.Route})" +
+                                                  (string.IsNullOrWhiteSpace(h.Note) ? "" : $" – _{h.Note}_"))));
+
         var image = await renderer.RecapAsync(run, stats);
         return new Card(embed, image, "rueckblick.png");
     }
@@ -281,6 +287,32 @@ public class CardFactory(ImageRenderer renderer)
                 .WithFooter((global ? "Lebend = im laufenden Run · Beste = weitester Fortschritt (Kämpfe) · " : "") +
                             "Tode = Soul Links, deren Tod der Spieler ausgelöst hat");
         return new Card(embed, image, fileName);
+    }
+
+    // ---------------------------------------------------------------- Highlights
+
+    public const int HighlightsPerPage = 8;
+
+    public static int HighlightPages(int count) => Math.Max(1, (count + HighlightsPerPage - 1) / HighlightsPerPage);
+
+    /// <param name="filter">Beschreibung der Filter für den Untertitel, z. B. "RUN 4" oder "ALLE RUNS".</param>
+    public async Task<Card> HighlightsAsync(IReadOnlyList<HighlightView> all, int page, string filter)
+    {
+        var pages = HighlightPages(all.Count);
+        page = Math.Clamp(page, 0, pages - 1);
+        var items = all.Skip(page * HighlightsPerPage).Take(HighlightsPerPage).ToList();
+
+        var image = await renderer.HallOfFameAsync(items, "HALL OF FAME", $"{filter}  SEITE {page + 1}/{pages}");
+        var embed = new EmbedBuilder()
+            .WithTitle("⭐ Hall of Fame")
+            .WithColor(Formatting.Gold)
+            .WithFooter($"{all.Count} Highlights · Seite {page + 1}/{pages} · markieren mit dem ⭐-Button oder /highlight");
+        if (image is null)
+            embed.WithDescription(items.Count == 0
+                ? "Noch keine Highlights."
+                : string.Join("\n", items.Select(h => $"**{h.Stars}★** {h.Title} – Run {h.RunNumber}, {h.Route} ({h.Owner})" +
+                                                      (string.IsNullOrWhiteSpace(h.Note) ? "" : $"\n  _{h.Note}_"))));
+        return new Card(embed, image, "highlights.png");
     }
 
     // ---------------------------------------------------------------- Levelcap

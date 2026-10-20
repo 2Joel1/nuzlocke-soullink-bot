@@ -23,6 +23,7 @@ var services = new ServiceCollection()
     .AddSingleton<ImageRenderer>()
     .AddSingleton<CardFactory>()
     .AddSingleton<LiveStatusService>()
+    .AddSingleton<HighlightService>()
     .BuildServiceProvider();
 
 // --- Datenbank anlegen (falls noch nicht vorhanden) ---

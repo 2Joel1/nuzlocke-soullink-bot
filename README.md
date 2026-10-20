@@ -41,13 +41,15 @@ Gruppe von Spielern dokumentiert – mit Regelprüfung, Statistiken, Erfolgen un
 - **Live-Status** – eine angepinnte Nachricht mit Board, Run-Tabelle und globaler Tabelle, die sich bei jeder Änderung selbst aktualisiert.
 - **Run-Rückblick** – am Ende jedes Runs ein Bild mit Dauer, Zeitstrahl aller Fänge und Tode, Spieler-Statistik
   und nummeriertem Friedhof.
-- **16 Erfolge & 5 Titel** – z. B. *Legendär*, *Blitzkrieg*, *Wipe-Verursacher*; Titel wie *Pechvogel*
+- **17 Erfolge & 5 Titel** – z. B. *Legendär*, *Blitzkrieg*, *Wipe-Verursacher*; Titel wie *Pechvogel*
   wandern automatisch zum aktuell Führenden.
 - **Zwei Bedienwege** – Slash-Commands mit Autocomplete oder ein Bedienfeld mit Buttons,
   Auswahlmenüs und Formularen (`/menu`).
 - **Eigene Routen** – z. B. für Static- oder Geschenk-Pokémon, für alle Spieler sichtbar.
 - **Korrekturen** – Vertipper und versehentliche Tode lassen sich rückgängig machen.
 - **Levelcap** – zeigt das höchste Level des nächsten Arenaleiters (bzw. Top Vier, N, G-Cis) und den Fortschritt im Run.
+- **Highlights** – besondere Momente per ⭐-Button oder `/highlight` markieren. Jeder Spieler vergibt einen Stern,
+  `/highlights` zeigt die Hall of Fame, der Rückblick die Top 3 des Runs.
 - **Arena-Fortschritt überall** – Ordenleiste im Status, Endstation jedes Runs in `/run liste` (inkl. gefährlichstem
   Gegner), Orden als Meilensteine im Rückblick und der weiteste Fortschritt pro Spieler in der globalen Tabelle.
 
@@ -132,6 +134,8 @@ einen Status (*lebendig*, *gebrochen*, *tot*). Dadurch reicht ein einziger Statu
 | `/tabelle run [nummer]` · `/tabelle global` | Statistik pro Spieler |
 | `/erfolge [spieler]` · `/titel` | Erfolge und aktuelle Titelträger |
 | `/route erstellen name` · `loeschen` · `liste` | Eigene Routen (Statics, Geschenke) |
+| `/highlight ereignis [notiz]` | Fang, verpassten Encounter oder Tod als Highlight markieren (oder ⭐ unter dem Banner) |
+| `/highlights [run] [spieler] [art]` | Hall of Fame: alle Highlights nach Sternen, mit Filtern und Blättern |
 | `/levelcap` | Levelcap bis zum nächsten Pflichtkampf (höchstes Level des Gegners) und alle Arenen im Überblick |
 | `/arena geschafft` · `/arena setzen geschafft` | Nächste Arena als geschafft eintragen · Fortschritt korrigieren |
 | `/korrektur fang-loeschen route` · `tod-zuruecknehmen route` | Fehler korrigieren |
@@ -155,6 +159,7 @@ einen Status (*lebendig*, *gebrochen*, *tot*). Dadurch reicht ein einziger Statu
 | 🧊 Eiskalt | Run mit mind. 8 Routen beendet, ohne selbst einen Tod auszulösen |
 | 🔁 Stammgast · 🧱 Unkaputtbar | 5 · 10 Runs gespielt |
 | 🏆 Champion | Run geschafft |
+| ⭐ Publikumsliebling | Eigener Moment mit Sternen von allen Mitspielern des Runs |
 
 **Titel:** 💀 Pechvogel · 🎣 Meisterfänger · 🙈 Grobmotoriker · 🛡️ Schutzengel · 🏅 Trophäenjäger
 

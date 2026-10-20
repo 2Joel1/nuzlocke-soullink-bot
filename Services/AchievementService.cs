@@ -9,7 +9,8 @@ public record PlayerFacts(
     List<Run> Runs,                                                    // Runs, in denen er mitgespielt hat
     List<(Run Run, RouteLink Link, Encounter Encounter)> Encounters,   // eigene Encounter
     List<(Run Run, RouteLink Link)> CausedDeaths,                      // Tode, die er ausgelöst hat
-    HashSet<string> CustomRouteKeys);
+    HashSet<string> CustomRouteKeys,
+    List<(int RunId, HashSet<int> StarredBy)> OwnHighlights);          // Highlights seiner Ereignisse mit Sterne-Gebern
 
 /// <summary>Ein Erfolg: einmal freigeschaltet, bleibt er (auch nach Korrekturen).</summary>
 public record Achievement(string Key, string Emoji, string Name, string Description, Func<PlayerFacts, bool> Unlocked);
@@ -84,13 +85,20 @@ public class AchievementService(IDbContextFactory<NuzlockeDbContext> dbFactory)
             f => f.Runs.Count >= 10),
         new("champion", "🏆", "Champion", "Einen Run geschafft",
             f => f.Runs.Any(r => r.Status == RunStatus.Geschafft)),
+
+        // Highlights
+        new("publikumsliebling", "⭐", "Publikumsliebling", "Ein eigener Moment hat Sterne von allen Mitspielern des Runs",
+            f => f.OwnHighlights.Any(h => f.Runs.FirstOrDefault(r => r.Id == h.RunId) is { } run
+                && run.Participants.Count >= 2
+                && run.Participants.Where(x => x.PlayerId != f.Player.Id).All(x => h.StarredBy.Contains(x.PlayerId)))),
     ];
 
     public static Achievement? Find(string key) => All.FirstOrDefault(a => a.Key == key);
 
     // ---------------------------------------------------------------- Laden
 
-    private record GuildData(List<Run> Runs, List<Player> Players, List<PlayerAchievement> Unlocked, HashSet<string> CustomKeys);
+    private record GuildData(List<Run> Runs, List<Player> Players, List<PlayerAchievement> Unlocked, HashSet<string> CustomKeys,
+        List<Highlight> Highlights);
 
     private static async Task<GuildData> LoadAsync(NuzlockeDbContext db, ulong guildId)
     {
@@ -99,7 +107,9 @@ public class AchievementService(IDbContextFactory<NuzlockeDbContext> dbFactory)
         var playerIds = players.Select(p => p.Id).ToList();
         var unlocked = await db.PlayerAchievements.Where(a => playerIds.Contains(a.PlayerId)).ToListAsync();
         var customKeys = (await db.CustomRoutes.Where(r => r.GuildId == (long)guildId).Select(r => r.NameKey).ToListAsync()).ToHashSet();
-        return new GuildData(runs, players, unlocked, customKeys);
+        var highlights = await db.Highlights.Where(h => h.GuildId == (long)guildId)
+            .Include(h => h.Stars).Include(h => h.Encounter).Include(h => h.RouteLink).ToListAsync();
+        return new GuildData(runs, players, unlocked, customKeys, highlights);
     }
 
     private static PlayerFacts FactsFor(Player p, GuildData data)
@@ -115,7 +125,11 @@ public class AchievementService(IDbContextFactory<NuzlockeDbContext> dbFactory)
                 .Where(l => l.Status == LinkStatus.Tot && l.CausedByPlayerId == p.Id)
                 .Select(l => (Run: r, Link: l)))
             .ToList();
-        return new PlayerFacts(p, runs, encounters, deaths, data.CustomKeys);
+        var own = data.Highlights
+            .Where(h => (h.Encounter?.PlayerId ?? h.RouteLink?.CausedByPlayerId) == p.Id)
+            .Select(h => (h.RunId, h.Stars.Select(s => s.PlayerId).ToHashSet()))
+            .ToList();
+        return new PlayerFacts(p, runs, encounters, deaths, data.CustomKeys, own);
     }
 
     // ---------------------------------------------------------------- Öffentliche API

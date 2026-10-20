@@ -86,6 +86,12 @@ public abstract class NuzlockeModuleBase(RunService runs, AchievementService ach
     }
 
     /// <summary>Nach jeder Aktion: neue Erfolge prüfen und öffentlich verkünden.</summary>
+    /// <summary>⭐-Button unter Fang-, Verpasst- und Tod-Bannern. Funktioniert dauerhaft (auch nach Neustart).</summary>
+    protected static MessageComponent HighlightButton(HighlightKind kind, int id) =>
+        new ComponentBuilder()
+            .WithButton("Highlight", $"nz:hl:{HighlightService.Key(kind, id)}", ButtonStyle.Secondary, new Emoji("⭐"))
+            .Build();
+
     protected async Task AnnounceAchievementsAsync()
     {
         var unlocked = await Achievements.CheckAsync(GuildId);
@@ -106,7 +112,7 @@ public abstract class NuzlockeModuleBase(RunService runs, AchievementService ach
             : missing > 0 ? $"Noch {missing} Spieler offen auf dieser Route." : "🔗 Soul Link komplett!";
 
         var me = link.Encounters.First(e => e.Player.DiscordUserId == (long)Context.User.Id);
-        await SendCardsAsync(false, null, null, await Cards.CatchAsync(run, link, me, statusLine));
+        await SendCardsAsync(false, null, HighlightButton(HighlightKind.Fang, me.Id), await Cards.CatchAsync(run, link, me, statusLine));
         await AnnounceAchievementsAsync();
     }
 
@@ -116,7 +122,7 @@ public abstract class NuzlockeModuleBase(RunService runs, AchievementService ach
         await DeferForImageAsync();
 
         var me = link.Encounters.First(e => e.Player.DiscordUserId == (long)Context.User.Id);
-        await SendCardsAsync(false, null, null, await Cards.MissAsync(run, link, me));
+        await SendCardsAsync(false, null, HighlightButton(HighlightKind.Verpasst, me.Id), await Cards.MissAsync(run, link, me));
         await AnnounceAchievementsAsync();
     }
 
@@ -126,7 +132,7 @@ public abstract class NuzlockeModuleBase(RunService runs, AchievementService ach
         await DeferForImageAsync();
 
         var me = link.Encounters.First(e => e.Player.DiscordUserId == (long)Context.User.Id);
-        await SendCardsAsync(false, null, null, await Cards.DeathAsync(run, link, me));
+        await SendCardsAsync(false, null, HighlightButton(HighlightKind.Tod, link.Id), await Cards.DeathAsync(run, link, me));
         await AnnounceAchievementsAsync();
     }
 

@@ -714,6 +714,81 @@ public sealed class ImageRenderer
             return await ToPngAsync(img);
         });
 
+    /// <summary>
+    /// Hall of Fame: pro Highlight Icon, Art (Fang/Verpasst/Tod), Titel, Run/Route/Spieler, Notiz und Sterne.
+    /// </summary>
+    public Task<MemoryStream?> HallOfFameAsync(IReadOnlyList<HighlightView> items, string title, string subtitle) =>
+        SafeRenderAsync(async () =>
+        {
+            const int RowH = 40, Top = 52;
+            var height = Top + RowH * Math.Max(1, items.Count) + 6;
+            var species = items.Where(i => i.Species is { Length: > 1 }).Select(i => i.Species).Distinct().ToList();
+            var icons = (await Task.WhenAll(species.Select(async s => (s, Img: await LoadIconAsync(s)))))
+                .ToDictionary(x => x.s, x => x.Img);
+            var (f8, f16, fs) = Fonts();
+
+            using var img = CreatePage(SceneMood.Gold, height);
+            img.Mutate(ctx =>
+            {
+                TitleBox(ctx, Sanitize(title), Sanitize(subtitle), f8, f16);
+                if (items.Count == 0)
+                    SText(ctx, 14, Top + 12, "NOCH KEINE HIGHLIGHTS. MARKIERE EINEN MOMENT MIT DEM STERN-BUTTON.", PixMuted, fs);
+
+                var y = Top;
+                foreach (var h in items)
+                {
+                    var dead = h.Kind == HighlightKind.Tod;
+                    PixRect(ctx, 4, y, 395, y + RowH - 3, PixFrame);
+                    PixRect(ctx, 6, y + 2, 393, y + RowH - 5, PixBoxInner);
+                    PixRect(ctx, 7, y + 3, 392, y + RowH - 6, PixBox);
+
+                    if (icons.GetValueOrDefault(h.Species) is { } icon)
+                    {
+                        using var ic = dead ? icon.Clone(c => c.Grayscale().Opacity(0.75f)) : icon.Clone();
+                        ctx.DrawImage(ic, new Point(10 + (30 - ic.Width) / 2, y + (RowH - 3 - ic.Height) / 2), 1f);
+                    }
+
+                    var (label, color) = h.Kind switch
+                    {
+                        HighlightKind.Fang => ("FANG", PixGreen),
+                        HighlightKind.Verpasst => ("VERPASST", PixOrange),
+                        _ => ("TOD", PixRed)
+                    };
+                    var lw = (int)Width(label, fs);
+                    PixRect(ctx, 44, y + 4, 44 + lw + 5, y + 15, color);
+                    SText(ctx, 47, y + 5, label, Color.White, fs);
+                    PixText(ctx, 44 + lw + 10, y + 6, Fit(Sanitize(h.Title).ToUpperInvariant(), f8, 300 - (lw + 10)), f8, PixInk);
+
+                    var line2 = $"Run {h.RunNumber} · {h.Route} · {h.Owner}" + (h.Detail is null ? "" : $" · {h.Detail}");
+                    SText(ctx, 44, y + 17, Fit(Sanitize(line2).ToUpperInvariant(), fs, 300), PixMuted, fs);
+                    if (!string.IsNullOrWhiteSpace(h.Note))
+                        SText(ctx, 44, y + 26, Fit($"„{Sanitize(h.Note)}“".ToUpperInvariant(), fs, 300), PixInk, fs);
+
+                    var stars = h.Stars.ToString();
+                    var sx = (int)(386 - Width(stars, f16));
+                    PixText(ctx, sx, y + 6, stars, f16, PixGold);
+                    Star(ctx, sx - 13, y + 9, BadgeOn);
+                    var by = Fit(Sanitize(string.Join(", ", h.StarredBy)).ToUpperInvariant(), fs, 60);
+                    SText(ctx, (int)(386 - Width(by, fs)), y + 26, by, PixMuted, fs);
+
+                    y += RowH;
+                }
+
+                Finish(ctx, height);
+            });
+
+            return await ToPngAsync(img);
+        });
+
+    /// <summary>Pixel-Stern (9×9).</summary>
+    private static void Star(IImageProcessingContext ctx, int x, int y, Color c)
+    {
+        (int Start, int Width)[] rows = [(4, 1), (4, 1), (3, 3), (0, 9), (1, 7), (2, 5), (1, 7)];
+        for (var i = 0; i < rows.Length; i++) PixRect(ctx, x + rows[i].Start, y + i, x + rows[i].Start + rows[i].Width - 1, y + i, c);
+        PixRect(ctx, x + 1, y + 7, x + 2, y + 7, c); PixRect(ctx, x + 6, y + 7, x + 7, y + 7, c);
+        PixRect(ctx, x, y + 8, x + 1, y + 8, c); PixRect(ctx, x + 7, y + 8, x + 8, y + 8, c);
+    }
+
     private static readonly Color BadgeOn = Rgb(232, 176, 40), BadgeHigh = Rgb(255, 236, 150), BadgeOff = Rgb(176, 176, 184);
 
     /// <summary>Pixel-Orden als Raute (9 oder 7 Pixel), golden wenn geschafft, sonst grau.</summary>

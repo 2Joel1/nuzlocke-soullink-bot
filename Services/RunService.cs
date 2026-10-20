@@ -399,6 +399,8 @@ public class RunService(IDbContextFactory<NuzlockeDbContext> dbFactory)
         link.CausedByPlayer = null;
         RecalculateStatus(link);
 
+        // Der Tod ist zurückgenommen – ein Tod-Highlight dazu ergibt keinen Sinn mehr
+        await db.Highlights.Where(h => h.RouteLinkId == link.Id && h.Kind == HighlightKind.Tod).ExecuteDeleteAsync();
         await db.SaveChangesAsync();
         OnRunChanged(guildId);
         return new LinkResult(run, link);
