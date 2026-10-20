@@ -34,7 +34,8 @@ Gruppe von Spielern dokumentiert – mit Regelprüfung, Statistiken, Erfolgen un
 - **Regelprüfung** – nur ein Encounter pro Route und Spieler, nur gültige Routen und nur Pokémon,
   die es in Schwarz gibt (alle 649). Bei Vertippern schlägt der Bot ähnliche Namen vor.
 - **Run-Verwaltung** – Runs starten und beenden, verbrauchte Runs zählen, Historie aller Versuche.
-- **Generierte Bilder** – Banner mit den Sprites aller Soul-Link-Partner, ein Status-Board pro Run und
+- **Generierte Bilder im Pixel-Stil** – Banner wie ein Kampfbildschirm (Fang, Tod, Run-Start/-Ende, Erfolge)
+  mit den Sprites aller Soul-Link-Partner, ein Status-Board mit Menü-Icons und
   große Statistik-Tabellen, gezeichnet zur Laufzeit.
 - **Statistiken** – pro Run und über alle Runs: lebende Pokémon, Fänge, ausgelöste Tode, verpasste Encounter.
 - **Live-Status** – eine angepinnte Nachricht mit Board und Tabelle, die sich bei jeder Änderung selbst aktualisiert.
@@ -91,6 +92,9 @@ Ein **`RouteLink`** ist der Soul Link einer Route in einem Run. Er bündelt die 
 einen Status (*lebendig*, *gebrochen*, *tot*). Dadurch reicht ein einziger Statuswechsel, damit alle Partner sterben.
 
 ### Designentscheidungen
+
+- **Echte Pixelgrafik** – alle Bilder werden 400 Pixel breit ohne Kantenglättung gezeichnet und dann pixelgenau
+  dreifach vergrößert. So passen Schrift, Fenster, Sprites und Icons zusammen wie im Spiel.
 
 - **Regeln in der Datenbank abgesichert** – eindeutige Indizes (eine Route pro Run, ein Encounter pro Spieler
   und Route) verhindern doppelte Einträge auch bei gleichzeitigen Eingaben.
@@ -163,7 +167,7 @@ einen Status (*lebendig*, *gebrochen*, *tot*). Dadurch reicht ein einziger Statu
 ├── Services/
 │   ├── RunService.cs              Spiellogik und Regeln
 │   ├── AchievementService.cs      Erfolge und Titel
-│   ├── ImageRenderer.cs           Zeichnet Banner, Boards und Tabellen
+│   ├── ImageRenderer.cs           Zeichnet alle Bilder im Pixel-Stil (Banner, Board, Tabellen, Rückblick)
 │   ├── CardFactory.cs             Kombiniert Embed + Bild zu einer Nachricht
 │   ├── LiveStatusService.cs       Hält die Live-Statusnachricht aktuell
 │   └── Formatting.cs              Texte und Embeds
@@ -255,7 +259,8 @@ journalctl -u nuzlockebot -f   # Logs ansehen
 ## Danksagungen & Lizenzen
 
 - Sprites: [PokeAPI/sprites](https://github.com/PokeAPI/sprites) – werden nicht im Repository gespeichert
-- Schriftart: [DejaVu Sans](https://dejavu-fonts.github.io/) (freie Lizenz, siehe `Assets/Fonts/LICENSE_DEJAVU`)
+- Pixelschriften: [Press Start 2P](https://fonts.google.com/specimen/Press+Start+2P) und
+  [Silkscreen](https://fonts.google.com/specimen/Silkscreen), beide unter der SIL Open Font License (siehe `Assets/Fonts/OFL_*.txt`)
 - [ImageSharp](https://github.com/SixLabors/ImageSharp) unter der Six Labors Split License (kostenlos für Open Source)
 - Pokémon und alle zugehörigen Namen sind Marken von Nintendo, Game Freak und The Pokémon Company.
   Dies ist ein nicht-kommerzielles Fan-Projekt ohne Verbindung zu diesen Unternehmen.

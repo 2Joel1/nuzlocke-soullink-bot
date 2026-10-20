@@ -190,7 +190,8 @@ public abstract class NuzlockeModuleBase(RunService runs, AchievementService ach
         var run = await Runs.GetRunAsync(GuildId, number);
         var stats = RunService.ComputeStats([run], aliveIn: run);
         return await Cards.StatsAsync($"📊 Run #{run.Number} – {Formatting.RunStatusText(run.Status)}", stats, global: false,
-            run.Status == RunStatus.Aktiv ? Tone.Green : Tone.Grey, "tabelle-run.png");
+            run.Status == RunStatus.Aktiv ? Tone.Green : Tone.Grey, "tabelle-run.png",
+            $"RUN {run.Number}", CardFactory.StatusWord(run.Status));
     }
 
     protected async Task<Card> GlobalTableCardAsync()
@@ -200,8 +201,9 @@ public abstract class NuzlockeModuleBase(RunService runs, AchievementService ach
 
         var active = all.FirstOrDefault(r => r.Status == RunStatus.Aktiv);
         var stats = RunService.ComputeStats(all, aliveIn: active);
-        return await Cards.StatsAsync($"🌍 Alle Runs – {all.Count(r => r.Status != RunStatus.Aktiv)} verbraucht", stats,
-            global: true, Tone.Gold, "tabelle-global.png");
+        var used = all.Count(r => r.Status != RunStatus.Aktiv);
+        return await Cards.StatsAsync($"🌍 Alle Runs – {used} verbraucht", stats,
+            global: true, Tone.Gold, "tabelle-global.png", "ALLE RUNS", used == 1 ? "1 RUN VERBRAUCHT" : $"{used} RUNS VERBRAUCHT");
     }
 
     protected async Task DoShowPlayerAchievementsAsync(IUser user, bool ephemeral)

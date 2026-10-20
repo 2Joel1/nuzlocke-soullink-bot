@@ -43,14 +43,62 @@ public class CardFactory(ImageRenderer renderer)
             .Select(x => new BannerMon(x.Encounter!.Species, x.Player.Name))
             .ToList();
 
+    /// <summary>Alle Teilnehmer mit ihrem Pokémon auf dieser Route – wer noch nichts hat, bekommt ein "?".</summary>
+    private static List<BannerMon> LinkMons(Run run, RouteLink link) =>
+        run.Participants.OrderBy(p => p.PlayerId)
+            .Select(p => (p.Player, Encounter: link.Encounters.FirstOrDefault(e => e.PlayerId == p.PlayerId)))
+            .Select(x => new BannerMon(x.Encounter?.Status == EncounterStatus.Gefangen ? x.Encounter.Species : "", x.Player.Name))
+            .ToList();
+
+    private static string Up(string? s) => (s ?? "").ToUpperInvariant();
+
+    public static SceneMood MoodFor(RunStatus status) => status switch
+    {
+        RunStatus.Aktiv => SceneMood.Day,
+        RunStatus.Geschafft => SceneMood.Gold,
+        RunStatus.Gescheitert => SceneMood.Night,
+        _ => SceneMood.Grey
+    };
+
+    /// <summary>"AKTIV", "GESCHAFFT", "GESCHEITERT", "ABGEBROCHEN".</summary>
+    public static string StatusWord(RunStatus status) => status switch
+    {
+        RunStatus.Aktiv => "AKTIV",
+        RunStatus.Geschafft => "GESCHAFFT",
+        RunStatus.Gescheitert => "GESCHEITERT",
+        _ => "ABGEBROCHEN"
+    };
+
+    /// <summary>"MAX und LISA" bzw. "JOEL, MAX und LISA".</summary>
+    private static string NameList(IEnumerable<string> names)
+    {
+        var list = names.Select(Up).ToList();
+        return list.Count <= 1 ? string.Join("", list) : $"{string.Join(", ", list[..^1])} und {list[^1]}";
+    }
+
+    /// <summary>"BOB (KRABBY)" bzw. "ein KRABBY".</summary>
+    private static string MonText(Encounter e, bool article = false) =>
+        string.IsNullOrWhiteSpace(e.Nickname) ? (article ? $"ein {Up(e.Species)}" : Up(e.Species)) : $"{Up(e.Nickname)} ({Up(e.Species)})";
+
+    private static int CaughtCount(Run run, RouteLink link) =>
+        run.Participants.Count(p => link.Encounters.Any(e => e.PlayerId == p.PlayerId && e.Status == EncounterStatus.Gefangen));
+
     // ---------------------------------------------------------------- Fang / Verpasst / Tod
 
     public async Task<Card> CatchAsync(Run run, RouteLink link, Encounter me, string statusLine)
     {
         var embed = Formatting.LinkEmbedBuilder($"🎯 {link.Route}: {Formatting.PokemonText(me)} gefangen",
             run, link, Formatting.Green, statusLine, me.Species);
-        var image = await renderer.BannerAsync(Tone.Green, $"Fang · Run #{run.Number}", link.Route,
-            [$"{me.Player.Name}: {Formatting.PokemonText(me)}", StripMarkdown(statusLine)], CaughtMons(run, link));
+
+        var missing = run.Participants.Count(p => link.Encounters.All(e => e.PlayerId != p.PlayerId));
+        var others = run.Participants.Where(p => p.PlayerId != me.PlayerId).OrderBy(p => p.PlayerId).Select(p => p.Player.Name).ToList();
+        var line2 = link.Status == LinkStatus.Gebrochen ? "Ein Partner hat verpasst. Ab in die Box!"
+            : missing > 0 ? $"Noch {missing} Spieler offen auf dieser Route."
+            : others.Count > 0 ? $"Soul Link mit {NameList(others)} steht." : "Der Soul Link steht.";
+
+        var image = await renderer.BattleAsync(new BattleBanner(SceneMood.Day, Up(link.Route), $"RUN {run.Number}",
+            $"{Up(me.Player.Name)} hat {MonText(me, article: true)} gefangen!", line2,
+            LinkMons(run, link), CaughtCount(run, link), run.Participants.Count));
         return new Card(embed, image, "fang.png");
     }
 
@@ -58,8 +106,9 @@ public class CardFactory(ImageRenderer renderer)
     {
         var embed = Formatting.LinkEmbedBuilder($"🟡 {link.Route}: Encounter verpasst", run, link, Formatting.Yellow,
             "Der Soul Link dieser Route ist gebrochen – gefangene Partner sind nicht nutzbar.", me.Species);
-        var image = await renderer.BannerAsync(Tone.Yellow, $"Verpasst · Run #{run.Number}", link.Route,
-            [$"{me.Player.Name} hat den Encounter verpasst", "Soul Link gebrochen – Partner nicht nutzbar"], CaughtMons(run, link));
+        var image = await renderer.BattleAsync(new BattleBanner(SceneMood.Dusk, Up(link.Route), $"RUN {run.Number}",
+            $"{Up(me.Player.Name)} hat den Encounter verpasst…", "Soul Link gebrochen. Partner in die Box!",
+            LinkMons(run, link), CaughtCount(run, link), run.Participants.Count));
         return new Card(embed, image, "verpasst.png");
     }
 
@@ -70,9 +119,14 @@ public class CardFactory(ImageRenderer renderer)
             $"**Ursache:** {link.DeathCause}\n**Ausgelöst von:** {link.CausedByPlayer?.Name}\n\nNoch {alive} lebende Links." +
             (alive == 0 ? "\n\n☠️ **Keine lebenden Links mehr** – Zeit für `/run ende`?" : ""),
             me.Species);
-        var image = await renderer.BannerAsync(Tone.Red, $"Soul Link gerissen · Run #{run.Number}", link.Route,
-            [link.DeathCause ?? "", $"ausgelöst von {link.CausedByPlayer?.Name} · noch {alive} lebende Links"],
-            CaughtMons(run, link), grayscale: true);
+
+        var fallen = link.Encounters.Where(e => e.Status == EncounterStatus.Gefangen).OrderBy(e => e.PlayerId)
+            .Select(e => string.IsNullOrWhiteSpace(e.Nickname) ? e.Species : e.Nickname!).ToList();
+        var line2 = fallen.Count == 1 ? $"{Up(fallen[0])} ist fort…" : $"{NameList(fallen)} sind fort…";
+        if (line2.Length > 45) line2 = $"Alle {fallen.Count} Partner sind fort…";
+
+        var image = await renderer.BattleAsync(new BattleBanner(SceneMood.Night, Up(link.Route), $"RUN {run.Number}",
+            $"{link.DeathCause?.TrimEnd('!', '.', ' ')}!", line2, CaughtMons(run, link), 0, run.Participants.Count, Grayscale: true));
         return new Card(embed, image, "tod.png");
     }
 
@@ -80,24 +134,26 @@ public class CardFactory(ImageRenderer renderer)
 
     public async Task<Card> RunStartAsync(Run run, int previous)
     {
-        var names = string.Join(", ", run.Participants.OrderBy(p => p.PlayerId).Select(p => p.Player.Name));
+        var names = run.Participants.OrderBy(p => p.PlayerId).Select(p => p.Player.Name).ToList();
         var embed = new EmbedBuilder()
             .WithTitle($"🎮 Run #{run.Number} gestartet")
-            .WithDescription($"**Spieler:** {names}\n**Bisher verbrauchte Runs:** {previous}\n\n" +
+            .WithDescription($"**Spieler:** {string.Join(", ", names)}\n**Bisher verbrauchte Runs:** {previous}\n\n" +
                              "Viel Glück – und Finger weg vom Kritischen Treffer.")
             .WithColor(Formatting.Green);
-        var image = await renderer.BannerAsync(Tone.Green, "Neuer Run", $"Run #{run.Number}",
-            [$"Spieler: {names}", $"Bisher verbrauchte Runs: {previous}"], []);
+        var image = await renderer.BattleAsync(new BattleBanner(SceneMood.Dawn, $"RUN {run.Number}",
+            previous == 1 ? "1 RUN VERBRAUCHT" : $"{previous} RUNS VERBRAUCHT",
+            $"Run {run.Number} beginnt! Viel Glück!", $"Mit {NameList(names)}.",
+            names.Select(n => new BannerMon("", n)).ToList()));
         return new Card(embed, image, "run-start.png");
     }
 
     public async Task<Card> RunEndAsync(Run run)
     {
-        var (tone, word) = run.Status switch
+        var (mood, word) = run.Status switch
         {
-            RunStatus.Geschafft => (Tone.Gold, "geschafft!"),
-            RunStatus.Gescheitert => (Tone.Red, "gescheitert"),
-            _ => (Tone.Grey, "abgebrochen")
+            RunStatus.Geschafft => (SceneMood.Gold, "geschafft!"),
+            RunStatus.Gescheitert => (SceneMood.Night, "gescheitert"),
+            _ => (SceneMood.Grey, "abgebrochen")
         };
 
         // Bei Erfolg das überlebende Team zeigen, sonst den letzten Soul Link, der gestorben ist
@@ -114,14 +170,23 @@ public class CardFactory(ImageRenderer renderer)
         }
 
         var dead = run.Links.Count(l => l.Status == LinkStatus.Tot);
+        var alive = run.Links.Count(l => l.Status == LinkStatus.Lebendig);
         var embed = new EmbedBuilder()
             .WithTitle($"Run #{run.Number} {word}")
             .WithDescription((run.EndReason is null ? "" : $"**Grund:** {run.EndReason}\n") +
                              $"{run.Links.Count} Routen · {dead} Soul Links gestorben")
-            .WithColor(tone switch { Tone.Gold => Formatting.Gold, Tone.Red => Formatting.Red, _ => Formatting.Grey });
-        var image = await renderer.BannerAsync(tone, "Run beendet", $"Run #{run.Number} {word}",
-            [run.EndReason ?? "", $"{run.Links.Count} Routen · {dead} Soul Links gestorben"],
-            mons, grayscale: run.Status != RunStatus.Geschafft);
+            .WithColor(mood switch { SceneMood.Gold => Formatting.Gold, SceneMood.Night => Formatting.Red, _ => Formatting.Grey });
+
+        var line1 = run.Status switch
+        {
+            RunStatus.Geschafft => "Ihr habt es geschafft! Glückwunsch!",
+            RunStatus.Gescheitert => $"Run {run.Number} ist vorbei…",
+            _ => $"Run {run.Number} wurde abgebrochen."
+        };
+        var stats = $"{run.Links.Count} Routen, {dead} Soul Links gestorben.";
+        var image = await renderer.BattleAsync(new BattleBanner(mood, $"RUN {run.Number}", Up(word),
+            line1, string.IsNullOrWhiteSpace(run.EndReason) ? stats : run.EndReason!,
+            mons, alive, Math.Max(run.Links.Count, 1), Grayscale: run.Status != RunStatus.Geschafft));
         return new Card(embed, image, "run-ende.png");
     }
 
@@ -158,15 +223,7 @@ public class CardFactory(ImageRenderer renderer)
     public async Task<Card> StatusAsync(Run run, string fileName = "status.png")
     {
         var links = run.Links.OrderBy(l => l.Status).ThenBy(l => l.Id).ToList();
-        var tone = run.Status switch
-        {
-            RunStatus.Aktiv => Tone.Green,
-            RunStatus.Geschafft => Tone.Gold,
-            RunStatus.Gescheitert => Tone.Red,
-            _ => Tone.Grey
-        };
-
-        var image = await renderer.BoardAsync(tone, $"Run #{run.Number} – {StripEmoji(Formatting.RunStatusText(run.Status))}", run, links);
+        var image = await renderer.BoardAsync(MoodFor(run.Status), $"RUN {run.Number}", run, links);
         var embed = image is null
             ? Formatting.RunOverviewBuilder(run)
             : new EmbedBuilder()
@@ -181,17 +238,19 @@ public class CardFactory(ImageRenderer renderer)
     public async Task<Card> GraveyardAsync(Run run)
     {
         var dead = run.Links.Where(l => l.Status == LinkStatus.Tot).OrderBy(l => l.DiedAt).ToList();
-        var image = dead.Count == 0 ? null : await renderer.BoardAsync(Tone.Red, $"Friedhof – Run #{run.Number}", run, dead);
+        var image = dead.Count == 0 ? null : await renderer.BoardAsync(SceneMood.Night, "FRIEDHOF", run, dead);
         return new Card(Formatting.GraveyardEmbedBuilder(run), image, "friedhof.png");
     }
 
     // ---------------------------------------------------------------- Tabellen
 
-    public async Task<Card> StatsAsync(string title, IReadOnlyList<PlayerStats> stats, bool global, Tone tone, string fileName)
+    /// <param name="imageTitle">Titel im Bild (z. B. "RUN 4"), <paramref name="imageSubtitle"/> darunter (z. B. "AKTIV").</param>
+    public async Task<Card> StatsAsync(string title, IReadOnlyList<PlayerStats> stats, bool global, Tone tone, string fileName,
+        string imageTitle, string imageSubtitle)
     {
         var headers = global
-            ? new[] { "Spieler", "Runs", "Lebend", "Gefangen", "Tode", "Verpasst" }
-            : new[] { "Spieler", "Lebend", "Gefangen", "Tode", "Verpasst" };
+            ? new[] { "SPIELER", "RUNS", "LEBT", "FANG", "TODE", "VERP." }
+            : new[] { "SPIELER", "LEBT", "FANG", "TODE", "VERP." };
         var tones = global
             ? new[] { Tone.Grey, Tone.Green, Tone.Blue, Tone.Red, Tone.Yellow }
             : new[] { Tone.Green, Tone.Blue, Tone.Red, Tone.Yellow };
@@ -201,14 +260,15 @@ public class CardFactory(ImageRenderer renderer)
                 : new[] { s.Name, $"{s.Alive}", $"{s.Caught}", $"{s.Deaths}", $"{s.Missed}" })
             .ToList();
 
-        var withTotal = stats.Count > 1;
-        if (withTotal)
+        string[]? total = null;
+        if (stats.Count > 1)
         {
             string[] sums = [$"{stats.Sum(s => s.Alive)}", $"{stats.Sum(s => s.Caught)}", $"{stats.Sum(s => s.Deaths)}", $"{stats.Sum(s => s.Missed)}"];
-            rows.Add((global ? new[] { "Gesamt", "" } : new[] { "Gesamt" }).Concat(sums).ToArray());
+            total = (global ? new[] { "Gesamt", "" } : new[] { "Gesamt" }).Concat(sums).ToArray();
         }
 
-        var image = await renderer.TableAsync(tone, StripEmoji(title), headers, tones, rows, withTotal);
+        var mood = tone switch { Tone.Gold => SceneMood.Gold, Tone.Grey => SceneMood.Grey, _ => SceneMood.Day };
+        var image = await renderer.TableAsync(mood, imageTitle, imageSubtitle, headers, tones, rows, total);
         var embed = image is null
             ? Formatting.StatsEmbedBuilder(title, stats, global, tone == Tone.Gold ? Formatting.Gold : Formatting.Green)
             : new EmbedBuilder()
@@ -222,16 +282,17 @@ public class CardFactory(ImageRenderer renderer)
 
     public async Task<Card> AchievementAsync(IReadOnlyList<UnlockedAchievement> unlocked)
     {
-        var title = unlocked.Count == 1 ? unlocked[0].Achievement.Name : $"{unlocked.Count} neue Erfolge";
-        var lines = unlocked.Count == 1
-            ? new List<string> { $"{unlocked[0].Player.Name}: {unlocked[0].Achievement.Description}" }
-            : unlocked.Take(2).Select(u => $"{u.Player.Name}: {u.Achievement.Name}")
-                .Append(unlocked.Count > 2 ? $"… und {unlocked.Count - 2} weitere" : "")
-                .Take(2).ToList();
+        var first = unlocked[0];
+        var single = unlocked.Count == 1;
+        var title = single ? Up(first.Achievement.Name) : $"{unlocked.Count} ERFOLGE";
+        var line1 = single ? $"{Up(first.Player.Name)} erhält einen Erfolg!" : $"{unlocked.Count} neue Erfolge freigeschaltet!";
+        var line2 = single ? first.Achievement.Description
+            : string.Join(", ", unlocked.Take(3).Select(u => $"{Up(u.Player.Name)}: {u.Achievement.Name}"));
         var mons = unlocked.Where(u => u.Species is not null)
             .Select(u => new BannerMon(u.Species!, u.Player.Name)).Take(3).ToList();
 
-        var image = await renderer.BannerAsync(Tone.Gold, "Erfolg freigeschaltet", title, lines, mons);
+        var image = await renderer.BattleAsync(new BattleBanner(SceneMood.Gold, title, "ERFOLG!", line1, line2,
+            mons, Medal: mons.Count == 0));
         return new Card(Formatting.AchievementAnnouncementBuilder(unlocked), image, "erfolg.png");
     }
 
@@ -240,22 +301,15 @@ public class CardFactory(ImageRenderer renderer)
         var rows = counts.Select(c => new[] { c.Name, $"{c.Count}/{total}" }).ToList();
         var image = rows.Count == 0
             ? null
-            : await renderer.TableAsync(Tone.Gold, "Erfolge pro Spieler", ["Spieler", "Erfolge"], [Tone.Gold], rows, false);
+            : await renderer.TableAsync(SceneMood.Gold, "ERFOLGE", "PRO SPIELER", ["SPIELER", "ERFOLGE"], [Tone.Gold], rows, null);
         return new Card(Formatting.TitlesEmbedBuilder(titles, counts, total, includeTable: image is null), image, "titel.png");
     }
 
     public async Task<Card> MenuAsync()
     {
-        var image = await renderer.BannerAsync(Tone.Green, "Bedienfeld", "Nuzlocke Soul Link",
-            ["Pokémon Schwarz · Randomizer", "Alle Funktionen per Button"], []);
+        var image = await renderer.BattleAsync(new BattleBanner(SceneMood.Day, "NUZLOCKE", "POKÉMON SCHWARZ",
+            "Was möchtest du tun?", "Wähle unten eine Aktion.",
+            [new BannerMon("", ""), new BannerMon("", ""), new BannerMon("", "")]));
         return new Card(Formatting.MenuEmbedBuilder(), image, "menu.png");
     }
-
-    // ---------------------------------------------------------------- Text-Helfer
-
-    /// <summary>Emojis entfernen (die Bild-Schriftart kann keine Emojis darstellen).</summary>
-    private static string StripEmoji(string text) =>
-        new string(text.Where(c => !char.IsSurrogate(c) && c != '️' && c is < '☀' or > '➿').ToArray()).Trim();
-
-    private static string StripMarkdown(string text) => StripEmoji(text.Replace("**", "").Replace("`", ""));
 }

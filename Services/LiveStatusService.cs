@@ -219,7 +219,8 @@ public class LiveStatusService
 
         var stats = RunService.ComputeStats([run], aliveIn: run);
         var table = await _cards.StatsAsync($"📊 Tabelle – Run #{run.Number}", stats, global: false,
-            run.Status == RunStatus.Aktiv ? Tone.Green : Tone.Grey, "live-tabelle.png");
+            run.Status == RunStatus.Aktiv ? Tone.Green : Tone.Grey, "live-tabelle.png",
+            $"RUN {run.Number}", CardFactory.StatusWord(run.Status));
 
         return new[] { board, table }.Prepare();
     }
