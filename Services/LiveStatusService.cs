@@ -214,7 +214,8 @@ public class LiveStatusService
         var board = await _cards.StatusAsync(run, "live-board.png");
         board.Embed
             .WithTitle($"📡 Live-Status – Run #{run.Number}")
-            .WithFooter($"{Formatting.Counts(run)} · aktualisiert")
+            .WithFooter($"{Formatting.Counts(run)} · " +
+                        (LevelCaps.Next(run.Progress) is { } cap ? $"Levelcap {cap.Level} ({cap.Trainer}) · " : "") + "aktualisiert")
             .WithCurrentTimestamp();
 
         var stats = RunService.ComputeStats([run], aliveIn: run);

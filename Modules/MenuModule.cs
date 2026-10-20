@@ -80,6 +80,7 @@ public class MenuModule(RunService runs, AchievementService achievements, CardFa
             .WithButton("Tabelle", "nz:tabelle", ButtonStyle.Primary, new Emoji("📊"), row: 1)
             .WithButton("Friedhof", "nz:friedhof", ButtonStyle.Primary, new Emoji("🪦"), row: 1)
             .WithButton("Erfolge", "nz:erfolge", ButtonStyle.Primary, new Emoji("🏅"), row: 1)
+            .WithButton("Levelcap", "nz:levelcap", ButtonStyle.Primary, new Emoji("📈"), row: 1)
             .WithButton("Beitreten", "nz:beitreten", ButtonStyle.Secondary, new Emoji("➕"), row: 2)
             .WithButton("Run starten", "nz:run-start", ButtonStyle.Secondary, new Emoji("▶️"), row: 2)
             .WithButton("Run beenden", "nz:run-ende", ButtonStyle.Secondary, new Emoji("⏹️"), row: 2)
@@ -163,6 +164,9 @@ public class MenuModule(RunService runs, AchievementService achievements, CardFa
         SafeAsync(() => DoDeathAsync(modal.Route, modal.Ursache));
 
     // ---------------------------------------------------------------- Übersichten (nur für dich sichtbar)
+
+    [ComponentInteraction("nz:levelcap")]
+    public Task LevelcapButtonAsync() => SafeAsync(() => DoShowLevelCapAsync(ephemeral: true));
 
     [ComponentInteraction("nz:status")]
     public Task StatusButtonAsync() => SafeAsync(() => DoShowStatusAsync(null, ephemeral: true));

@@ -23,7 +23,8 @@ public enum SceneMood { Day, Dawn, Dusk, Night, Gold, Grey }
 /// <param name="BarValue">Füllstand der "Band"-Leiste. Bei <paramref name="BarMax"/> = 0 wird keine Leiste gezeigt.</param>
 public record BattleBanner(
     SceneMood Mood, string Title, string Subtitle, string Line1, string Line2,
-    IReadOnlyList<BannerMon> Mons, int BarValue = 0, int BarMax = 0, bool Grayscale = false, bool Medal = false);
+    IReadOnlyList<BannerMon> Mons, int BarValue = 0, int BarMax = 0, bool Grayscale = false, bool Medal = false,
+    string MedalLabel = "");
 
 /// <summary>
 /// Zeichnet alle Bilder im Pixel-Stil eines Kampfbildschirms: Banner, Status-Board, Tabellen und Rückblick.
@@ -172,7 +173,7 @@ public sealed class ImageRenderer
                 if (mons.Count > 3) DrawGroup(ctx, f8, f16, p, mons, sprites, 3, mons.Count - 3, 62, 306, false, banner.Grayscale);
                 DrawGroup(ctx, f8, f16, p, mons, sprites, 0, Math.Min(3, mons.Count), 84, 284, showTags, banner.Grayscale);
 
-                if (banner.Medal) DrawMedal(ctx, f8, 290);
+                if (banner.Medal) DrawMedal(ctx, f8, 290, banner.MedalLabel);
 
                 // Infobox oben links
                 var withBar = banner.BarMax > 0;
@@ -244,13 +245,14 @@ public sealed class ImageRenderer
         }
     }
 
-    private void DrawMedal(IImageProcessingContext ctx, Font f8, int cx)
+    private void DrawMedal(IImageProcessingContext ctx, Font f8, int cx, string label)
     {
         PixPolygon(ctx, Rgb(64, 96, 200), (cx - 14, 30), (cx - 4, 30), (cx + 2, 52), (cx - 8, 52));
         PixPolygon(ctx, Rgb(216, 64, 64), (cx + 14, 30), (cx + 4, 30), (cx - 2, 52), (cx + 8, 52));
         PixOval(ctx, cx - 16, 48, cx + 16, 80, Rgb(176, 128, 24));
         PixOval(ctx, cx - 13, 51, cx + 13, 77, Rgb(248, 200, 64));
-        PixText(ctx, cx - 4, 60, "1", f8, Rgb(176, 128, 24), shadow: false);
+        if (label.Length > 0)
+            PixText(ctx, cx - (int)Width(label, f8) / 2, 60, label, f8, Rgb(176, 128, 24), shadow: false);
     }
 
     // ---------------------------------------------------------------- Pixel-Bausteine
@@ -655,6 +657,60 @@ public sealed class ImageRenderer
 
             return await ToPngAsync(img);
         });
+
+    /// <summary>
+    /// Levelcap-Liste: alle Pflichtkämpfe mit Ort, Typ und höchstem Level.
+    /// Geschaffte Kämpfe sind grau mit Haken, der nächste ist golden hervorgehoben.
+    /// </summary>
+    public Task<MemoryStream?> LevelCapAsync(IReadOnlyList<BossFight> fights, int progress) =>
+        SafeRenderAsync(async () =>
+        {
+            const int RowH = 30, Top = 52;
+            var height = Top + RowH * fights.Count + 6;
+            var (f8, f16, fs) = Fonts();
+            var next = progress >= 0 && progress < fights.Count ? fights[progress] : null;
+
+            using var img = CreatePage(SceneMood.Day, height);
+            img.Mutate(ctx =>
+            {
+                TitleBox(ctx, next is null ? "LEVELCAP -" : $"LEVELCAP {next.Level}",
+                    next is null ? "STORY GESCHAFFT!" : $"NÄCHSTER: {next.Short}", f8, f16);
+
+                var y = Top;
+                for (var i = 0; i < fights.Count; i++)
+                {
+                    var f = fights[i];
+                    var done = i < progress; var current = i == progress;
+                    PixRect(ctx, 4, y, 395, y + RowH - 3, PixFrame);
+                    PixRect(ctx, 6, y + 2, 393, y + RowH - 5, current ? Rgb(252, 226, 120) : PixBoxInner);
+                    PixRect(ctx, 7, y + 3, 392, y + RowH - 6, current ? Rgb(254, 240, 176) : done ? PixDeadBox : PixBox);
+
+                    if (done) Checkmark(ctx, 11, y + 9, PixGreen);
+                    else if (current) PixPolygon(ctx, PixRed, (13, y + 8), (13, y + 18), (19, y + 13));
+                    else SText(ctx, 12, y + 10, f.Nr.ToString(), PixMuted, fs);
+
+                    PixText(ctx, 30, y + 6, Fit(f.Short, f8, 220), f8, done ? PixMuted : PixInk, shadow: !done);
+                    SText(ctx, 30, y + 16, Fit($"{f.Place}, {f.Type}".ToUpperInvariant(), fs, 250), PixMuted, fs);
+
+                    var lv = f.Level.ToString();
+                    var x = (int)(386 - Width(lv, f16));
+                    PixText(ctx, x, y + 6, lv, f16, done ? PixMuted : current ? PixRed : PixInk, shadow: !done);
+                    SText(ctx, (int)(x - Width("LV", fs) - 4), y + 13, "LV", PixMuted, fs);
+                    y += RowH;
+                }
+
+                Finish(ctx, height);
+            });
+
+            return await ToPngAsync(img);
+        });
+
+    /// <summary>Pixel-Haken für geschaffte Kämpfe.</summary>
+    private static void Checkmark(IImageProcessingContext ctx, int x, int y, Color c)
+    {
+        (int Dx, int Dy)[] pts = [(0, 4), (1, 5), (2, 6), (3, 7), (4, 6), (5, 5), (6, 4), (7, 3), (8, 2), (9, 1), (10, 0)];
+        foreach (var (dx, dy) in pts) PixRect(ctx, x + dx, y + dy, x + dx, y + dy + 2, c);
+    }
 
     /// <summary>Rotes Kästchen mit Nummer (Zeitstrahl).</summary>
     private static void NumberBadge(IImageProcessingContext ctx, int cx, int cy, int number, Font f8)

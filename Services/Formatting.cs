@@ -319,7 +319,8 @@ public static class Formatting
                 "📋 **Status** – alle Routen und Pokémon des Runs\n" +
                 "📊 **Tabelle** – Lebend/Gefangen/Tode/Verpasst pro Spieler\n" +
                 "🪦 **Friedhof** – alle toten Soul Links\n" +
-                "🏅 **Erfolge** – deine Erfolge und die aktuellen Titelträger\n\n" +
+                "🏅 **Erfolge** – deine Erfolge und die aktuellen Titelträger\n" +
+                "📈 **Levelcap** – höchstes Level bis zur nächsten Arena\n\n" +
                 "**Verwaltung**\n" +
                 "➕ **Beitreten** · ▶️ **Run starten** · ⏹️ **Run beenden** · 🗺️ **Route erstellen**\n\n" +
                 "_Alles geht auch per Slash-Command (`/fang`, `/tod`, `/tabelle global`, …). " +

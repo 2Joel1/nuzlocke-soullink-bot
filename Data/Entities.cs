@@ -46,6 +46,8 @@ public class Run
     public DateTime StartedAt { get; set; } = DateTime.UtcNow;
     public DateTime? EndedAt { get; set; }
     public string? EndReason { get; set; }
+    /// <summary>Anzahl geschaffter Pflichtkämpfe (Arenen, Top Vier, N, G-Cis) – bestimmt den Levelcap.</summary>
+    public int Progress { get; set; }
 
     public List<RunParticipant> Participants { get; set; } = [];
     public List<RouteLink> Links { get; set; } = [];

@@ -178,6 +178,13 @@ public abstract class NuzlockeModuleBase(RunService runs, AchievementService ach
         await SendCardsAsync(ephemeral, null, null, await Cards.GraveyardAsync(run));
     }
 
+    protected async Task DoShowLevelCapAsync(bool ephemeral)
+    {
+        var run = await Runs.GetRunAsync(GuildId, null);
+        await DeferForImageAsync(ephemeral);
+        await SendCardsAsync(ephemeral, null, null, await Cards.LevelCapAsync(run));
+    }
+
     protected async Task DoShowRecapAsync(int? number)
     {
         var run = await Runs.GetRunAsync(GuildId, number);

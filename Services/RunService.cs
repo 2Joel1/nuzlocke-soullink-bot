@@ -125,6 +125,36 @@ public class RunService(IDbContextFactory<NuzlockeDbContext> dbFactory)
         return (run, previous);
     }
 
+    // ---------------------------------------------------------------- Arenen / Levelcap
+
+    /// <summary>Nächsten Pflichtkampf als geschafft markieren. Liefert den Run und den besiegten Gegner.</summary>
+    public async Task<(Run Run, BossFight Beaten)> AdvanceProgressAsync(ulong guildId)
+    {
+        await using var db = await dbFactory.CreateDbContextAsync();
+        var run = await RequireActiveRunAsync(db, guildId);
+        var fight = LevelCaps.Next(run.Progress)
+            ?? throw new NuzlockeException("Alle Arenen, die Top Vier, N und G-Cis sind schon geschafft. Zeit für `/run ende`!");
+
+        run.Progress++;
+        await db.SaveChangesAsync();
+        OnRunChanged(guildId);
+        return (run, fight);
+    }
+
+    /// <summary>Fortschritt direkt setzen (Korrektur). 0 = noch keine Arena, 8 = alle Orden, 11 = Story geschafft.</summary>
+    public async Task<Run> SetProgressAsync(ulong guildId, int progress)
+    {
+        if (progress < 0 || progress > LevelCaps.Schwarz.Count)
+            throw new NuzlockeException($"Der Fortschritt muss zwischen 0 und {LevelCaps.Schwarz.Count} liegen.");
+
+        await using var db = await dbFactory.CreateDbContextAsync();
+        var run = await RequireActiveRunAsync(db, guildId);
+        run.Progress = progress;
+        await db.SaveChangesAsync();
+        OnRunChanged(guildId);
+        return run;
+    }
+
     public async Task<Run> EndRunAsync(ulong guildId, RunStatus result, string? reason)
     {
         if (result == RunStatus.Aktiv)

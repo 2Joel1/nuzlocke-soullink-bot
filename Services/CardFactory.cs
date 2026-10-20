@@ -278,6 +278,44 @@ public class CardFactory(ImageRenderer renderer)
         return new Card(embed, image, fileName);
     }
 
+    // ---------------------------------------------------------------- Levelcap
+
+    public async Task<Card> LevelCapAsync(Run run)
+    {
+        var next = LevelCaps.Next(run.Progress);
+        var embed = new EmbedBuilder()
+            .WithTitle(next is null ? $"📈 Run #{run.Number}: Story geschafft!" : $"📈 Levelcap: {next.Level}")
+            .WithDescription(next is null
+                ? "Alle Arenen, die Top Vier, N und G-Cis sind besiegt. Zeit für `/run ende`!"
+                : $"Nächster Kampf: **{next.Trainer}** ({next.Place}, {next.Type})\n" +
+                  $"Höchstes Pokémon: **Lv {next.Level}** – keins eurer Pokémon sollte darüber liegen.")
+            .WithColor(next is null ? Formatting.Gold : Formatting.Green)
+            .WithFooter($"Run #{run.Number} · {run.Progress}/{LevelCaps.Schwarz.Count} geschafft · " +
+                        "Level aus dem Originalspiel (im Randomizer meist gleich)");
+
+        var image = await renderer.LevelCapAsync(LevelCaps.Schwarz, run.Progress);
+        return new Card(embed, image, "levelcap.png");
+    }
+
+    /// <summary>Banner, wenn ein Pflichtkampf geschafft ist (Orden erhalten bzw. Liga-Gegner besiegt).</summary>
+    public async Task<Card> FightWonAsync(Run run, BossFight beaten)
+    {
+        var next = LevelCaps.Next(run.Progress);
+        var line2 = next is null ? "Story geschafft! Zeit für /run ende." : $"Neuer Levelcap: Lv {next.Level} ({next.Short})";
+        var embed = new EmbedBuilder()
+            .WithTitle(beaten.Badge is null ? $"🏆 {beaten.Trainer} besiegt!" : $"🏅 {beaten.Badge} erhalten!")
+            .WithDescription(next is null
+                ? "Die Story ist geschafft! 🎉"
+                : $"Nächster Kampf: **{next.Trainer}** ({next.Place}) · neuer Levelcap **Lv {next.Level}**")
+            .WithColor(Formatting.Gold)
+            .WithFooter($"Run #{run.Number} · {run.Progress}/{LevelCaps.Schwarz.Count} geschafft");
+
+        var image = await renderer.BattleAsync(new BattleBanner(SceneMood.Gold,
+            Up(beaten.Badge ?? beaten.Short), beaten.Badge is null ? "BESIEGT!" : $"ARENA {beaten.Nr} GESCHAFFT",
+            $"{beaten.Short} wurde besiegt!", line2, [], Medal: true, MedalLabel: beaten.Nr.ToString()));
+        return new Card(embed, image, "arena.png");
+    }
+
     // ---------------------------------------------------------------- Erfolge, Titel, Menü
 
     public async Task<Card> AchievementAsync(IReadOnlyList<UnlockedAchievement> unlocked)

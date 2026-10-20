@@ -45,6 +45,29 @@ public class NuzlockeDbContext(DbContextOptions<NuzlockeDbContext> options) : Db
                 "MessageId" INTEGER NOT NULL
             );
             """);
+
+        // Neue Spalten bei bestehender Datenbank ergänzen
+        await AddColumnIfMissingAsync("Runs", "Progress", "INTEGER NOT NULL DEFAULT 0");
+    }
+
+    private async Task AddColumnIfMissingAsync(string table, string column, string definition)
+    {
+        await Database.OpenConnectionAsync();
+        try
+        {
+            await using var cmd = Database.GetDbConnection().CreateCommand();
+            cmd.CommandText = $"SELECT COUNT(*) FROM pragma_table_info('{table}') WHERE name = '{column}'";
+            var exists = Convert.ToInt32(await cmd.ExecuteScalarAsync()) > 0;
+            if (!exists)
+            {
+                var sql = "ALTER TABLE \"" + table + "\" ADD COLUMN \"" + column + "\" " + definition;   // feste Werte aus dem Code
+                await Database.ExecuteSqlRawAsync(sql);
+            }
+        }
+        finally
+        {
+            await Database.CloseConnectionAsync();
+        }
     }
 
     protected override void OnModelCreating(ModelBuilder b)

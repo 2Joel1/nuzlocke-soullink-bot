@@ -47,6 +47,7 @@ Gruppe von Spielern dokumentiert – mit Regelprüfung, Statistiken, Erfolgen un
   Auswahlmenüs und Formularen (`/menu`).
 - **Eigene Routen** – z. B. für Static- oder Geschenk-Pokémon, für alle Spieler sichtbar.
 - **Korrekturen** – Vertipper und versehentliche Tode lassen sich rückgängig machen.
+- **Levelcap** – zeigt das höchste Level des nächsten Arenaleiters (bzw. Top Vier, N, G-Cis) und den Fortschritt im Run.
 
 ## Tech-Stack
 
@@ -129,6 +130,8 @@ einen Status (*lebendig*, *gebrochen*, *tot*). Dadurch reicht ein einziger Statu
 | `/tabelle run [nummer]` · `/tabelle global` | Statistik pro Spieler |
 | `/erfolge [spieler]` · `/titel` | Erfolge und aktuelle Titelträger |
 | `/route erstellen name` · `loeschen` · `liste` | Eigene Routen (Statics, Geschenke) |
+| `/levelcap` | Levelcap bis zum nächsten Pflichtkampf (höchstes Level des Gegners) und alle Arenen im Überblick |
+| `/arena geschafft` · `/arena setzen geschafft` | Nächste Arena als geschafft eintragen · Fortschritt korrigieren |
 | `/korrektur fang-loeschen route` · `tod-zuruecknehmen route` | Fehler korrigieren |
 
 </details>
