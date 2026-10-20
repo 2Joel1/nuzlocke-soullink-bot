@@ -49,7 +49,7 @@ public class RunModule(RunService runs, AchievementService achievements, CardFac
             foreach (var r in all)
             {
                 var dead = r.Links.Count(l => l.Status == LinkStatus.Tot);
-                sb.Append($"**#{r.Number}** {Formatting.RunStatusText(r.Status)} · {r.Links.Count} Routen, {dead} Tote");
+                sb.Append($"**#{r.Number}** {Formatting.RunStatusText(r.Status)} · {LevelCaps.Reached(r)} · {r.Links.Count} Routen, {dead} Tote");
                 if (!string.IsNullOrWhiteSpace(r.EndReason)) sb.Append($" · _{r.EndReason}_");
                 sb.AppendLine();
             }
@@ -76,6 +76,12 @@ public class RunModule(RunService runs, AchievementService achievements, CardFac
                 .AddField("Soul Links gestorben", deadLinks.Count.ToString(), inline: true)
                 .AddField("Häufigste Todesursache", OrDash(topCauses))
                 .AddField("Meiste Tode ausgelöst", OrDash(topPlayers))
+                .AddField("Gefährlichster Gegner", OrDash(all
+                    .Where(r => r.Status == RunStatus.Gescheitert && LevelCaps.Next(r.Progress) is not null)
+                    .GroupBy(r => LevelCaps.Next(r.Progress)!.Trainer)
+                    .OrderByDescending(g => g.Count())
+                    .Take(3)
+                    .Select(g => $"{g.Key} ({g.Count()}× gescheitert)")))
                 .WithColor(Formatting.Grey)
                 .Build();
 

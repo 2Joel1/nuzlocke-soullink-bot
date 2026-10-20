@@ -38,7 +38,7 @@ Gruppe von Spielern dokumentiert – mit Regelprüfung, Statistiken, Erfolgen un
   mit den Sprites aller Soul-Link-Partner, ein Status-Board mit Menü-Icons und
   große Statistik-Tabellen, gezeichnet zur Laufzeit.
 - **Statistiken** – pro Run und über alle Runs: lebende Pokémon, Fänge, ausgelöste Tode, verpasste Encounter.
-- **Live-Status** – eine angepinnte Nachricht mit Board und Tabelle, die sich bei jeder Änderung selbst aktualisiert.
+- **Live-Status** – eine angepinnte Nachricht mit Board, Run-Tabelle und globaler Tabelle, die sich bei jeder Änderung selbst aktualisiert.
 - **Run-Rückblick** – am Ende jedes Runs ein Bild mit Dauer, Zeitstrahl aller Fänge und Tode, Spieler-Statistik
   und nummeriertem Friedhof.
 - **16 Erfolge & 5 Titel** – z. B. *Legendär*, *Blitzkrieg*, *Wipe-Verursacher*; Titel wie *Pechvogel*
@@ -48,6 +48,8 @@ Gruppe von Spielern dokumentiert – mit Regelprüfung, Statistiken, Erfolgen un
 - **Eigene Routen** – z. B. für Static- oder Geschenk-Pokémon, für alle Spieler sichtbar.
 - **Korrekturen** – Vertipper und versehentliche Tode lassen sich rückgängig machen.
 - **Levelcap** – zeigt das höchste Level des nächsten Arenaleiters (bzw. Top Vier, N, G-Cis) und den Fortschritt im Run.
+- **Arena-Fortschritt überall** – Ordenleiste im Status, Endstation jedes Runs in `/run liste` (inkl. gefährlichstem
+  Gegner), Orden als Meilensteine im Rückblick und der weiteste Fortschritt pro Spieler in der globalen Tabelle.
 
 ## Tech-Stack
 

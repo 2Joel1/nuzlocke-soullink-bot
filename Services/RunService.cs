@@ -10,7 +10,8 @@ public class NuzlockeException(string message) : Exception(message);
 public record LinkResult(Run Run, RouteLink Link);
 
 /// <summary>Eine Zeile der Übersichtstabelle.</summary>
-public record PlayerStats(string Name, int Runs, int Alive, int Caught, int Deaths, int Missed);
+/// <param name="Best">Weitester Fortschritt (geschaffte Pflichtkämpfe) in allen Runs des Spielers.</param>
+public record PlayerStats(string Name, int Runs, int Alive, int Caught, int Deaths, int Missed, int Best = 0);
 
 public class RunService(IDbContextFactory<NuzlockeDbContext> dbFactory)
 {
@@ -33,6 +34,7 @@ public class RunService(IDbContextFactory<NuzlockeDbContext> dbFactory)
             .Include(r => r.Participants).ThenInclude(p => p.Player)
             .Include(r => r.Links).ThenInclude(l => l.Encounters).ThenInclude(e => e.Player)
             .Include(r => r.Links).ThenInclude(l => l.CausedByPlayer)
+            .Include(r => r.ArenaClears)
             .AsSplitQuery();
 
     private static async Task<Run> RequireActiveRunAsync(NuzlockeDbContext db, ulong guildId) =>
@@ -136,6 +138,8 @@ public class RunService(IDbContextFactory<NuzlockeDbContext> dbFactory)
             ?? throw new NuzlockeException("Alle Arenen, die Top Vier, N und G-Cis sind schon geschafft. Zeit für `/run ende`!");
 
         run.Progress++;
+        if (run.ArenaClears.All(a => a.Nr != fight.Nr))
+            run.ArenaClears.Add(new ArenaClear { Nr = fight.Nr });   // Zeitpunkt für den Zeitstrahl im Rückblick
         await db.SaveChangesAsync();
         OnRunChanged(guildId);
         return (run, fight);
@@ -150,6 +154,12 @@ public class RunService(IDbContextFactory<NuzlockeDbContext> dbFactory)
         await using var db = await dbFactory.CreateDbContextAsync();
         var run = await RequireActiveRunAsync(db, guildId);
         run.Progress = progress;
+        // Zurückgesetzte Kämpfe verlieren ihren Zeitpunkt; nachgetragene bekommen keinen (Zeitpunkt unbekannt)
+        foreach (var clear in run.ArenaClears.Where(a => a.Nr > progress).ToList())
+        {
+            run.ArenaClears.Remove(clear);
+            db.ArenaClears.Remove(clear);
+        }
         await db.SaveChangesAsync();
         OnRunChanged(guildId);
         return run;
@@ -418,7 +428,8 @@ public class RunService(IDbContextFactory<NuzlockeDbContext> dbFactory)
                     .Count(l => l.Encounters.Any(e => e.PlayerId == p.Id && e.Status == EncounterStatus.Gefangen)) ?? 0,
                 Caught: encounters.Count(e => e.PlayerId == p.Id && e.Status == EncounterStatus.Gefangen),
                 Deaths: deadLinks.Count(l => l.CausedByPlayerId == p.Id),
-                Missed: encounters.Count(e => e.PlayerId == p.Id && e.Status == EncounterStatus.Verpasst)))
+                Missed: encounters.Count(e => e.PlayerId == p.Id && e.Status == EncounterStatus.Verpasst),
+                Best: runs.Where(r => r.Participants.Any(x => x.PlayerId == p.Id)).Select(r => r.Progress).DefaultIfEmpty(0).Max()))
             .ToList();
     }
 

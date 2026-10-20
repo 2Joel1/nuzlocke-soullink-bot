@@ -28,6 +28,18 @@ public static class LevelCaps
         new(11, "G-Cis", "G-CIS", "N's Schloss", "Gemischt", null, 54),
     ];
 
+    /// <summary>Anzahl Orden bei einem Fortschritt (Top Vier, N, G-Cis geben keine Orden).</summary>
+    public static int Badges(int progress) => Math.Clamp(progress, 0, 8);
+
+    /// <summary>Wie weit ein Run gekommen ist, z. B. "vor Arenaleiter Artie (2 Orden)" oder "Story geschafft".</summary>
+    public static string Reached(Run run)
+    {
+        if (Next(run.Progress) is not { } next) return "Story geschafft";
+        var badges = Badges(run.Progress);
+        var prefix = run.Status == RunStatus.Aktiv ? "aktuell vor" : "Endstation vor";
+        return $"{prefix} {next.Trainer} ({badges} Orden)";
+    }
+
     /// <summary>Nächster Kampf bei einem Fortschritt (Anzahl geschaffter Kämpfe), null wenn alles geschafft ist.</summary>
     public static BossFight? Next(int progress) =>
         progress >= 0 && progress < Schwarz.Count ? Schwarz[progress] : null;

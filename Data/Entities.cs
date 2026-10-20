@@ -51,6 +51,18 @@ public class Run
 
     public List<RunParticipant> Participants { get; set; } = [];
     public List<RouteLink> Links { get; set; } = [];
+    public List<ArenaClear> ArenaClears { get; set; } = [];
+}
+
+/// <summary>Zeitpunkt, an dem ein Pflichtkampf (Arena, Top Vier, N, G-Cis) in einem Run geschafft wurde.</summary>
+public class ArenaClear
+{
+    public int Id { get; set; }
+    public int RunId { get; set; }
+    public Run Run { get; set; } = null!;
+    /// <summary>Nummer des Kampfes aus <see cref="LevelCaps"/> (1–11).</summary>
+    public int Nr { get; set; }
+    public DateTime ClearedAt { get; set; } = DateTime.UtcNow;
 }
 
 public class RunParticipant

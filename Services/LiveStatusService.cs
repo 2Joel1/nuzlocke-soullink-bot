@@ -223,7 +223,14 @@ public class LiveStatusService
             run.Status == RunStatus.Aktiv ? Tone.Green : Tone.Grey, "live-tabelle.png",
             $"RUN {run.Number}", CardFactory.StatusWord(run.Status));
 
-        return new[] { board, table }.Prepare();
+        // Globale Tabelle über alle Runs
+        var all = await _runs.GetAllRunsAsync(guildId);
+        var active = all.FirstOrDefault(r => r.Status == RunStatus.Aktiv);
+        var used = all.Count(r => r.Status != RunStatus.Aktiv);
+        var global = await _cards.StatsAsync($"🌍 Alle Runs – {used} verbraucht", RunService.ComputeStats(all, aliveIn: active),
+            global: true, Tone.Gold, "live-global.png", "ALLE RUNS", used == 1 ? "1 RUN VERBRAUCHT" : $"{used} RUNS VERBRAUCHT");
+
+        return new[] { board, table, global }.Prepare();
     }
 
     private async Task<IUserMessage?> GetMessageAsync(LiveMessage live)

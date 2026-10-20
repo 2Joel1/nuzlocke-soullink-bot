@@ -392,14 +392,19 @@ public sealed class ImageRenderer
             using var img = CreatePage(mood, height);
             img.Mutate(ctx =>
             {
-                TitleBox(ctx, Sanitize(title), "", f8, f16);
+                (Color C, int V)[] legend =
+                [
+                    (PixGreen, run.Links.Count(l => l.Status == LinkStatus.Lebendig)),
+                    (PixYellow, run.Links.Count(l => l.Status == LinkStatus.Gebrochen)),
+                    (PixRed, run.Links.Count(l => l.Status == LinkStatus.Tot))
+                ];
+                // Rechts neben der Legende: 8 Orden, die geschafften golden
+                var badgesX = 13 + legend.Sum(l => 10 + (int)Width(l.V.ToString(), f8) + 12) + 2;
+                TitleBox(ctx, Sanitize(title), "", f8, f16, minWidth: Math.Max(130, badgesX + 8 * 11 - 2));
+                for (var i = 0; i < 8; i++) Badge(ctx, badgesX + i * 11, 28, i < LevelCaps.Badges(run.Progress));
+
                 var lx = 13;
-                foreach (var (c, v) in new[]
-                         {
-                             (PixGreen, run.Links.Count(l => l.Status == LinkStatus.Lebendig)),
-                             (PixYellow, run.Links.Count(l => l.Status == LinkStatus.Gebrochen)),
-                             (PixRed, run.Links.Count(l => l.Status == LinkStatus.Tot))
-                         })
+                foreach (var (c, v) in legend)
                 {
                     PixRect(ctx, lx, 29, lx + 6, 35, PixFrame);
                     PixRect(ctx, lx + 1, 30, lx + 5, 34, c);
@@ -462,7 +467,7 @@ public sealed class ImageRenderer
         IReadOnlyList<string[]> rows, string[]? total) =>
         SafeRenderAsync(async () =>
         {
-            const int RowH = 22, Top = 62, First = 150;
+            const int RowH = 22, Top = 62, First = 140;
             var height = Top + RowH * Math.Max(1, rows.Count) + 14 + (total is null ? 0 : RowH + 10) + 6;
             var step = (386f - First) / Math.Max(1, headers.Length - 1);
             var (f8, f16, fs) = Fonts();
@@ -546,7 +551,7 @@ public sealed class ImageRenderer
                 .ToDictionary(x => x.s, x => x.Img);
             var (f8, f16, fs) = Fonts();
 
-            const int YTiles = 52, YLine = YTiles + 46, YPlayers = YLine + 58;
+            const int YTiles = 52, YLine = YTiles + 46, YPlayers = YLine + 64;
             var playersH = 20 + 18 * stats.Count;
             var yGrave = YPlayers + playersH + 8;
             var graveH = 18 + 26 * Math.Max(1, shown.Count) + (deaths.Count > MaxDeaths ? 12 : 0);
@@ -561,7 +566,7 @@ public sealed class ImageRenderer
                 (string Value, string Label, Color Color)[] tiles =
                 [
                     (FormatDuration(end - start, compact: true), "DAUER", PixInk),
-                    ($"{run.Links.Count}", "ROUTEN", PixInk),
+                    ($"{LevelCaps.Badges(run.Progress)}/8", "ORDEN", PixGold),
                     ($"{encounters.Count(e => e.Status == EncounterStatus.Gefangen)}", "FÄNGE", PixBlue),
                     ($"{deaths.Count}", "TODE", PixRed)
                 ];
@@ -576,17 +581,19 @@ public sealed class ImageRenderer
                 }
 
                 // Zeitstrahl
-                PixBoxShape(ctx, 4, YLine - 4, 395, YLine + 48);
+                PixBoxShape(ctx, 4, YLine - 4, 395, YLine + 54);
                 SText(ctx, 12, YLine + 2, "ZEITSTRAHL", PixMuted, fs);
-                var lx = 230;
+                var lx = 196;
                 foreach (var (c, label) in new[] { (PixGreen, "FANG"), (PixYellow, "VERPASST"), (PixRed, "TOD") })
                 {
                     PixRect(ctx, lx, YLine + 3, lx + 5, YLine + 8, c);
                     SText(ctx, lx + 8, YLine + 2, label, PixMuted, fs);
                     lx += 14 + (int)Width(label, fs);
                 }
+                Badge(ctx, lx - 1, YLine + 2, true, size: 7);
+                SText(ctx, lx + 8, YLine + 2, "ORDEN", PixMuted, fs);
 
-                const int Bx0 = 16, Bx1 = 383; var by = YLine + 26;
+                const int Bx0 = 16, Bx1 = 383; var by = YLine + 32;
                 int At(DateTime t) => (int)(Bx0 + (Bx1 - Bx0) * Math.Clamp((t - start).TotalHours / totalHours, 0, 1));
                 PixRect(ctx, Bx0, by - 1, Bx1, by, Rgb(176, 176, 184));
                 foreach (var e in encounters.OrderBy(e => e.CreatedAt))
@@ -596,6 +603,8 @@ public sealed class ImageRenderer
                 }
                 for (var i = 0; i < deaths.Count; i++)
                     NumberBadge(ctx, At(deaths[i].DiedAt!.Value), by, i + 1, f8);
+                foreach (var clear in run.ArenaClears.OrderBy(a => a.Nr))   // Meilensteine: wann welcher Kampf geschafft wurde
+                    Badge(ctx, At(clear.ClearedAt) - 3, by - 17, true, size: 7);
                 SText(ctx, Bx0, by + 9, "START", PixMuted, fs);
                 var endLabel = run.Status == RunStatus.Aktiv ? "JETZT" : "ENDE";
                 SText(ctx, (int)(Bx1 - Width(endLabel, fs)), by + 9, endLabel, PixMuted, fs);
@@ -704,6 +713,26 @@ public sealed class ImageRenderer
 
             return await ToPngAsync(img);
         });
+
+    private static readonly Color BadgeOn = Rgb(232, 176, 40), BadgeHigh = Rgb(255, 236, 150), BadgeOff = Rgb(176, 176, 184);
+
+    /// <summary>Pixel-Orden als Raute (9 oder 7 Pixel), golden wenn geschafft, sonst grau.</summary>
+    private static void Badge(IImageProcessingContext ctx, int x, int y, bool earned, int size = 9)
+    {
+        int[] outer = size == 9 ? [1, 3, 5, 7, 9, 7, 5, 3, 1] : [1, 3, 5, 7, 5, 3, 1];
+        int[] inner = size == 9 ? [1, 3, 5, 7, 5, 3, 1] : [1, 3, 5, 3, 1];
+        for (var i = 0; i < outer.Length; i++)
+        {
+            var x0 = x + (size - outer[i]) / 2;
+            PixRect(ctx, x0, y + i, x0 + outer[i] - 1, y + i, PixFrame);
+        }
+        for (var i = 0; i < inner.Length; i++)
+        {
+            var x0 = x + (size - inner[i]) / 2;
+            PixRect(ctx, x0, y + 1 + i, x0 + inner[i] - 1, y + 1 + i, earned ? BadgeOn : BadgeOff);
+        }
+        if (earned) PixRect(ctx, x + size / 2 - 1, y + 3, x + size / 2 - 1, y + 3, BadgeHigh);
+    }
 
     /// <summary>Pixel-Haken für geschaffte Kämpfe.</summary>
     private static void Checkmark(IImageProcessingContext ctx, int x, int y, Color c)

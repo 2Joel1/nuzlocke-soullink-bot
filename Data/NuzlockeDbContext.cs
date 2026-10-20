@@ -12,6 +12,7 @@ public class NuzlockeDbContext(DbContextOptions<NuzlockeDbContext> options) : Db
     public DbSet<CustomRoute> CustomRoutes => Set<CustomRoute>();
     public DbSet<PlayerAchievement> PlayerAchievements => Set<PlayerAchievement>();
     public DbSet<LiveMessage> LiveMessages => Set<LiveMessage>();
+    public DbSet<ArenaClear> ArenaClears => Set<ArenaClear>();
 
     /// <summary>
     /// Legt Tabellen an, die nach dem ersten Start dazugekommen sind.
@@ -38,6 +39,15 @@ public class NuzlockeDbContext(DbContextOptions<NuzlockeDbContext> options) : Db
                 CONSTRAINT "FK_PlayerAchievements_Players_PlayerId" FOREIGN KEY ("PlayerId") REFERENCES "Players" ("Id") ON DELETE CASCADE
             );
             CREATE UNIQUE INDEX IF NOT EXISTS "IX_PlayerAchievements_PlayerId_Key" ON "PlayerAchievements" ("PlayerId", "Key");
+
+            CREATE TABLE IF NOT EXISTS "ArenaClears" (
+                "Id" INTEGER NOT NULL CONSTRAINT "PK_ArenaClears" PRIMARY KEY AUTOINCREMENT,
+                "RunId" INTEGER NOT NULL,
+                "Nr" INTEGER NOT NULL,
+                "ClearedAt" TEXT NOT NULL,
+                CONSTRAINT "FK_ArenaClears_Runs_RunId" FOREIGN KEY ("RunId") REFERENCES "Runs" ("Id") ON DELETE CASCADE
+            );
+            CREATE UNIQUE INDEX IF NOT EXISTS "IX_ArenaClears_RunId_Nr" ON "ArenaClears" ("RunId", "Nr");
 
             CREATE TABLE IF NOT EXISTS "LiveMessages" (
                 "GuildId" INTEGER NOT NULL CONSTRAINT "PK_LiveMessages" PRIMARY KEY,
@@ -93,6 +103,10 @@ public class NuzlockeDbContext(DbContextOptions<NuzlockeDbContext> options) : Db
             .WithMany()
             .HasForeignKey(l => l.CausedByPlayerId)
             .OnDelete(DeleteBehavior.SetNull);
+
+        b.Entity<ArenaClear>()
+            .HasIndex(a => new { a.RunId, a.Nr })
+            .IsUnique();
 
         b.Entity<LiveMessage>().HasKey(m => m.GuildId);
         b.Entity<LiveMessage>().Property(m => m.GuildId).ValueGeneratedNever();
