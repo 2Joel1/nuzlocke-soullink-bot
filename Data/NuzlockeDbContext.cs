@@ -89,6 +89,7 @@ public class NuzlockeDbContext(DbContextOptions<NuzlockeDbContext> options) : Db
 
         // Neue Spalten bei bestehender Datenbank ergänzen
         await AddColumnIfMissingAsync("Runs", "Progress", "INTEGER NOT NULL DEFAULT 0");
+        await AddColumnIfMissingAsync("Players", "FavoriteSpecies", "TEXT NULL");
     }
 
     private async Task AddColumnIfMissingAsync(string table, string column, string definition)

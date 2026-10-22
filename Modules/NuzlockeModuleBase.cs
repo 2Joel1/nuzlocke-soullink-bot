@@ -227,6 +227,13 @@ public abstract class NuzlockeModuleBase(RunService runs, AchievementService ach
             ephemeral: ephemeral);
     }
 
+    protected async Task DoShowProfileAsync(ProfileService profiles, IUser user, bool ephemeral)
+    {
+        var profile = await profiles.GetProfileAsync(GuildId, user.Id);
+        await DeferForImageAsync(ephemeral);
+        await SendCardsAsync(ephemeral, null, null, await Cards.ProfileAsync(profile, user.GetDisplayAvatarUrl()));
+    }
+
     protected async Task DoShowTitlesAsync(bool ephemeral)
     {
         var (titles, counts) = await Achievements.GetTitlesAsync(GuildId);

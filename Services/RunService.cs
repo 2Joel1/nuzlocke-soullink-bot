@@ -284,7 +284,7 @@ public class RunService(IDbContextFactory<NuzlockeDbContext> dbFactory)
         return new LinkResult(run, link);
     }
 
-    private static string RequirePokemon(string input) =>
+    public static string RequirePokemon(string input) =>
         Pokedex.Find(input)
         ?? throw new NuzlockeException($"**{input.Trim()}** gibt es in Pokémon Schwarz nicht. " +
                                        $"Meintest du: {string.Join(", ", Pokedex.Suggest(input))}?");

@@ -34,6 +34,8 @@ public class Player
     public string Name { get; set; } = "";
     /// <summary>Nur aktive Spieler werden beim nächsten /run start übernommen.</summary>
     public bool Active { get; set; } = true;
+    /// <summary>Selbst gewähltes Lieblings-Pokémon fürs Profil (/favorit). Leer = das meistgefangene wird gezeigt.</summary>
+    public string? FavoriteSpecies { get; set; }
 }
 
 public class Run

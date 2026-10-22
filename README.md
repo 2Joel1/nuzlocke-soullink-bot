@@ -133,6 +133,8 @@ einen Status (*lebendig*, *gebrochen*, *tot*). Dadurch reicht ein einziger Statu
 | `/friedhof [run]` | Alle toten Soul Links |
 | `/tabelle run [nummer]` · `/tabelle global` | Statistik pro Spieler |
 | `/erfolge [spieler]` · `/titel` | Erfolge und aktuelle Titelträger |
+| `/profil [spieler]` | Trainerpass: Statistiken über alle Runs, Titel, Erzfeind, treuester Begleiter, bestes Highlight, Erfolge und Run-Historie |
+| `/favorit [pokemon]` | Lieblings-Pokémon fürs Profil festlegen (leer = automatisch das meistgefangene) |
 | `/route erstellen name` · `loeschen` · `liste` | Eigene Routen (Statics, Geschenke) |
 | `/highlight ereignis [notiz]` | Fang, verpassten Encounter oder Tod als Highlight markieren (oder ⭐ unter dem Banner) |
 | `/highlights [run] [spieler] [art]` | Hall of Fame: alle Highlights nach Sternen, mit Filtern und Blättern |

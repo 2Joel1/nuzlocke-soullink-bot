@@ -61,7 +61,8 @@ public class RouteModal : IModal
 /// Bedienfeld: /menu postet eine Nachricht mit Buttons. Die Buttons funktionieren dauerhaft,
 /// auch nach einem Neustart des Bots (feste Custom-IDs mit Präfix "nz:").
 /// </summary>
-public class MenuModule(RunService runs, AchievementService achievements, CardFactory cards) : NuzlockeModuleBase(runs, achievements, cards)
+public class MenuModule(RunService runs, AchievementService achievements, CardFactory cards, ProfileService profiles)
+    : NuzlockeModuleBase(runs, achievements, cards)
 {
     [SlashCommand("menu", "Bedienfeld mit allen Funktionen als Buttons posten")]
     public Task MenuAsync() =>
@@ -76,11 +77,12 @@ public class MenuModule(RunService runs, AchievementService achievements, CardFa
             .WithButton("Fang", "nz:fang", ButtonStyle.Success, new Emoji("🎯"), row: 0)
             .WithButton("Verpasst", "nz:verpasst", ButtonStyle.Secondary, new Emoji("🟡"), row: 0)
             .WithButton("Tod", "nz:tod", ButtonStyle.Danger, new Emoji("💀"), row: 0)
+            .WithButton("Levelcap", "nz:levelcap", ButtonStyle.Primary, new Emoji("📈"), row: 0)
             .WithButton("Status", "nz:status", ButtonStyle.Primary, new Emoji("📋"), row: 1)
             .WithButton("Tabelle", "nz:tabelle", ButtonStyle.Primary, new Emoji("📊"), row: 1)
             .WithButton("Friedhof", "nz:friedhof", ButtonStyle.Primary, new Emoji("🪦"), row: 1)
             .WithButton("Erfolge", "nz:erfolge", ButtonStyle.Primary, new Emoji("🏅"), row: 1)
-            .WithButton("Levelcap", "nz:levelcap", ButtonStyle.Primary, new Emoji("📈"), row: 1)
+            .WithButton("Profil", "nz:profil", ButtonStyle.Primary, new Emoji("🪪"), row: 1)
             .WithButton("Beitreten", "nz:beitreten", ButtonStyle.Secondary, new Emoji("➕"), row: 2)
             .WithButton("Run starten", "nz:run-start", ButtonStyle.Secondary, new Emoji("▶️"), row: 2)
             .WithButton("Run beenden", "nz:run-ende", ButtonStyle.Secondary, new Emoji("⏹️"), row: 2)
@@ -178,6 +180,9 @@ public class MenuModule(RunService runs, AchievementService achievements, CardFa
             await DeferForImageAsync(ephemeral: true);
             await SendCardsAsync(true, null, null, await RunTableCardAsync(null), await GlobalTableCardAsync());
         });
+
+    [ComponentInteraction("nz:profil")]
+    public Task ProfilButtonAsync() => SafeAsync(() => DoShowProfileAsync(profiles, Context.User, ephemeral: true));
 
     [ComponentInteraction("nz:friedhof")]
     public Task FriedhofButtonAsync() => SafeAsync(() => DoShowGraveyardAsync(null, ephemeral: true));

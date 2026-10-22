@@ -780,6 +780,144 @@ public sealed class ImageRenderer
             return await ToPngAsync(img);
         });
 
+    /// <summary>
+    /// Trainerpass: Name mit Trainer-ID, Lieblings-Pokémon auf einer Plattform, sechs Kennzahlen,
+    /// Infos (Titel, Erzfeind, Begleiter, Highlight, Überlebensquote), Erfolge als Orden-Reihe und die Run-Historie.
+    /// </summary>
+    public Task<MemoryStream?> ProfileAsync(PlayerProfile p, int achievementsTotal) =>
+        SafeRenderAsync(async () =>
+        {
+            const int MaxRuns = 8, YT = 52, YI = YT + 104, RowH = 16;
+            var runs = p.History.Take(MaxRuns).ToList();
+            var more = p.History.Count - runs.Count;
+
+            (string Label, string Value, Color Color, bool Star)[] info =
+            [
+                ("TITEL", p.Titles.Count == 0 ? "-" : string.Join(", ", p.Titles.Select(t => t.Name)), p.Titles.Count == 0 ? PixMuted : PixInk, false),
+                ("ERZFEIND", p.NemesisCause is null ? "-" : $"{p.NemesisCause} ({p.NemesisCount}X)", p.NemesisCause is null ? PixMuted : PixRed, false),
+                ("BEGLEITER", p.Companion is not { } c ? "-"
+                    : $"{(string.IsNullOrWhiteSpace(c.Nickname) ? c.Species : $"{c.Nickname} ({c.Species})")}  {FormatDuration(c.Duration, compact: true)}  RUN {c.RunNumber}",
+                    p.Companion is null ? PixMuted : p.Companion.StillAlive ? PixGreen : PixInk, false),
+                ("HIGHLIGHT", p.TopHighlight is not { } h ? "-" : $"{h.Title} ({h.Stars})", p.TopHighlight is null ? PixMuted : PixInk, p.TopHighlight is not null),
+                ("ÜBERLEBT", p.Caught == 0 ? "-" : $"{p.Survived} VON {p.Caught} ({p.Survived * 100 / p.Caught}%)", p.Caught == 0 ? PixMuted : PixGreen, false)
+            ];
+
+            var ih = 10 + 14 * info.Length;
+            var ya = YI + ih + 6;
+            var yr = ya + 28;
+            var runsH = 20 + RowH * Math.Max(1, runs.Count) + (more > 0 ? 12 : 0);
+            var height = yr + runsH + 6;
+
+            var sprite = p.Favorite is null ? null : await LoadSpriteAsync(p.Favorite);
+            var (f8, f16, fs) = Fonts();
+            var mood = p.Wins > 0 ? SceneMood.Gold : SceneMood.Day;
+            var scene = PaletteFor(mood);
+
+            using var img = CreatePage(mood, height);
+            img.Mutate(ctx =>
+            {
+                TitleBox(ctx, Sanitize(p.Player.Name).ToUpperInvariant(),
+                    $"ID {p.Player.DiscordUserId % 100000:D5}  SEIT {p.Since:dd.MM.yyyy}", f8, f16);
+
+                // Lieblings-Pokémon auf einer Plattform
+                PixBoxShape(ctx, 4, YT, 140, YT + 98);
+                SText(ctx, 12, YT + 6, p.FavoriteChosen || p.Favorite is null ? "FAVORIT" : "MEISTGEFANGEN", PixMuted, fs);
+                const int Cx = 72, Pt = YT + 66;
+                PixOval(ctx, Cx - 34, Pt, Cx + 34, Pt + 14, scene.Rim);
+                PixOval(ctx, Cx - 32, Pt, Cx + 32, Pt + 11, scene.Plat);
+                if (sprite is not null)
+                {
+                    var y = Math.Max(YT + 14, Pt + 8 - sprite.Height);
+                    ctx.DrawImage(sprite, new Point(Cx - sprite.Width / 2, y), 1f);
+                }
+                else PixText(ctx, Cx - 8, Pt - 18, "?", f16, PixFrame);
+                var favName = Fit(p.Favorite?.ToUpperInvariant() ?? "-", f8, 124);
+                PixText(ctx, Cx - (int)Width(favName, f8) / 2, YT + 84, favName, f8, PixInk);
+
+                // Kennzahlen (3×2)
+                var badges = LevelCaps.Badges(p.BestProgress);
+                (string Value, string Label, Color Color)[] tiles =
+                [
+                    ($"{p.Runs}", "RUNS", PixInk),
+                    ($"{p.Wins}", "SIEGE", PixGold),
+                    ($"{badges}/8", "BESTER RUN", p.BestProgress == 0 ? PixMuted : PixGold),
+                    ($"{p.Caught}", "FÄNGE", PixBlue),
+                    ($"{p.Deaths}", "TODE", PixRed),
+                    ($"{p.Missed}", "VERPASST", PixYellow)
+                ];
+                var tileW = (395f - 146 - 2 * 6) / 3;
+                for (var i = 0; i < tiles.Length; i++)
+                {
+                    var x = (int)(146 + i % 3 * (tileW + 6));
+                    var y = YT + i / 3 * 52;
+                    PixBoxShape(ctx, x, y, (int)(x + tileW), y + 46);
+                    var big = Width(tiles[i].Value, f16) <= tileW - 12;
+                    PixText(ctx, x + 8, big ? y + 9 : y + 12, tiles[i].Value, big ? f16 : f8,
+                        tiles[i].Value == "0" ? PixMuted : tiles[i].Color);
+                    SText(ctx, x + 8, y + 31, tiles[i].Label, PixMuted, fs);
+                }
+
+                // Infos
+                PixBoxShape(ctx, 4, YI, 395, YI + ih);
+                var iy = YI + 7;
+                foreach (var (label, value, color, star) in info)
+                {
+                    SText(ctx, 12, iy - 1, label, PixMuted, fs);
+                    var x = 86;
+                    if (star) { Star(ctx, x, iy, BadgeOn); x += 13; }
+                    PixText(ctx, x, iy, Fit(Sanitize(value).ToUpperInvariant(), f8, 384 - x), f8, color);
+                    iy += 14;
+                }
+
+                // Erfolge als Orden-Reihe
+                PixBoxShape(ctx, 4, ya, 395, ya + 22);
+                SText(ctx, 12, ya + 7, "ERFOLGE", PixMuted, fs);
+                var count = $"{p.Achievements.Count}/{achievementsTotal}";
+                PixText(ctx, (int)(386 - Width(count, f8)), ya + 7, count, f8, PixGold);
+                var step = Math.Min(12, (360 - Width(count, f8) - 72) / Math.Max(1, achievementsTotal));
+                for (var i = 0; i < achievementsTotal; i++)
+                    Badge(ctx, (int)(72 + i * step), ya + 6, i < p.Achievements.Count, size: step >= 12 ? 9 : 7);
+
+                // Run-Historie (neueste zuerst)
+                PixBoxShape(ctx, 4, yr, 395, yr + runsH);
+                SText(ctx, 12, yr + 6, "RUNS", PixMuted, fs);
+                SText(ctx, 184, yr + 6, "ORDEN", PixMuted, fs);
+                (string Head, Color Color, int Right)[] heads = [("FANG", PixBlue, 300), ("TODE", PixRed, 342), ("VERP.", PixYellow, 386)];
+                foreach (var (head, color, right) in heads)
+                    SText(ctx, (int)(right - Width(head, fs)), yr + 6, head, color, fs);
+
+                var ry = yr + 18;
+                foreach (var r in runs)
+                {
+                    var color = r.Status switch
+                    {
+                        RunStatus.Aktiv => PixGreen,
+                        RunStatus.Geschafft => PixGold,
+                        RunStatus.Gescheitert => PixRed,
+                        _ => PixMuted
+                    };
+                    PixRect(ctx, 12, ry + 2, 17, ry + 9, PixFrame);
+                    PixRect(ctx, 13, ry + 3, 16, ry + 8, color);
+                    PixText(ctx, 24, ry + 2, $"RUN {r.Number}", f8, PixInk);
+                    SText(ctx, 100, ry, CardFactory.StatusWord(r.Status), color, fs);
+                    for (var i = 0; i < 8; i++) Badge(ctx, 184 + i * 9, ry + 2, i < LevelCaps.Badges(r.Progress), size: 7);
+
+                    int[] values = [r.Caught, r.Deaths, r.Missed];
+                    for (var i = 0; i < values.Length; i++)
+                    {
+                        var v = values[i].ToString();
+                        PixText(ctx, (int)(heads[i].Right - Width(v, f8)), ry + 2, v, f8, values[i] == 0 ? PixMuted : heads[i].Color);
+                    }
+                    ry += RowH;
+                }
+                if (more > 0) SText(ctx, 12, ry, $"+ {more} ÄLTERE", PixMuted, fs);
+
+                Finish(ctx, height);
+            });
+
+            return await ToPngAsync(img);
+        });
+
     /// <summary>Pixel-Stern (9×9).</summary>
     private static void Star(IImageProcessingContext ctx, int x, int y, Color c)
     {

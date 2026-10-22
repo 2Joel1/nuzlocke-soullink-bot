@@ -380,6 +380,45 @@ public class CardFactory(ImageRenderer renderer, HighlightService highlights)
         return new Card(Formatting.TitlesEmbedBuilder(titles, counts, total, includeTable: image is null), image, "titel.png");
     }
 
+    // ---------------------------------------------------------------- Profil
+
+    /// <summary>Trainerpass eines Spielers. Das Bild zeigt alles; das Embed ergänzt Titel und neueste Erfolge mit Emojis.</summary>
+    public async Task<Card> ProfileAsync(PlayerProfile p, string? avatarUrl)
+    {
+        var total = AchievementService.All.Count;
+        var image = await renderer.ProfileAsync(p, total);
+
+        var embed = new EmbedBuilder()
+            .WithAuthor($"Trainerpass von {p.Player.Name}", avatarUrl)
+            .WithColor(p.Wins > 0 ? Formatting.Gold : Formatting.Green)
+            .WithFooter((p.FavoriteChosen ? "" : "Lieblings-Pokémon festlegen: /favorit · ") +
+                        "Tode = selbst ausgelöste Soul-Link-Tode");
+
+        if (p.Titles.Count > 0)
+            embed.AddField("👑 Titel", string.Join("\n", p.Titles.Select(t => $"{t.Emoji} **{t.Name}** – {t.Value}")), inline: true);
+
+        var recent = p.Achievements.OrderByDescending(a => a.UnlockedAt).Take(3).ToList();
+        embed.AddField($"🏅 Erfolge {p.Achievements.Count}/{total}",
+            recent.Count == 0
+                ? "_noch keine_"
+                : string.Join("\n", recent.Select(a => $"{a.Achievement.Emoji} **{a.Achievement.Name}** {Formatting.Timestamp(a.UnlockedAt, 'R')}")),
+            inline: true);
+
+        if (image is null)   // ohne Bild alles als Text
+        {
+            embed.WithDescription(
+                $"**Runs:** {p.Runs} · **Siege:** {p.Wins} · **Bester Run:** {LevelCaps.Badges(p.BestProgress)}/8 Orden\n" +
+                $"**Fänge:** {p.Caught} · **Tode:** {p.Deaths} · **Verpasst:** {p.Missed}\n" +
+                (p.Favorite is null ? "" : $"**{(p.FavoriteChosen ? "Favorit" : "Meistgefangen")}:** {p.Favorite}\n") +
+                (p.NemesisCause is null ? "" : $"**Erzfeind:** {p.NemesisCause} ({p.NemesisCount}×)\n") +
+                (p.TopHighlight is null ? "" : $"**Bestes Highlight:** {p.TopHighlight.Title} ({p.TopHighlight.Stars}★)\n") +
+                $"Dabei seit {Formatting.Timestamp(p.Since)}");
+            if (Formatting.SpriteUrl(p.Favorite) is { } sprite) embed.WithThumbnailUrl(sprite);
+        }
+
+        return new Card(embed, image, "profil.png");
+    }
+
     public async Task<Card> MenuAsync()
     {
         var image = await renderer.BattleAsync(new BattleBanner(SceneMood.Day, "NUZLOCKE", "POKÉMON SCHWARZ",

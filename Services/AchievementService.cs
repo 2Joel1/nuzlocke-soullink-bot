@@ -16,7 +16,8 @@ public record PlayerFacts(
 public record Achievement(string Key, string Emoji, string Name, string Description, Func<PlayerFacts, bool> Unlocked);
 
 /// <summary>Titel: gehört immer dem aktuell Führenden (ändert sich also).</summary>
-public record PlayerTitle(string Emoji, string Name, string Description, string Holders, string Value);
+/// <param name="HolderIds">Spieler-IDs der Titelträger (für das Profil).</param>
+public record PlayerTitle(string Emoji, string Name, string Description, string Holders, string Value, IReadOnlyList<int> HolderIds);
 
 public record UnlockedAchievement(Player Player, Achievement Achievement, string? Species);
 
@@ -215,13 +216,14 @@ public class AchievementService(IDbContextFactory<NuzlockeDbContext> dbFactory)
             if (!lowestWins) candidates = candidates.Where(c => c.Score > 0).ToList();
             if (candidates.Count == 0)
             {
-                titles.Add(new PlayerTitle(emoji, name, description, "_noch niemand_", ""));
+                titles.Add(new PlayerTitle(emoji, name, description, "_noch niemand_", "", []));
                 return;
             }
 
             var best = lowestWins ? candidates.Min(c => c.Score) : candidates.Max(c => c.Score);
-            var holders = candidates.Where(c => Math.Abs(c.Score - best) < 0.0001).Select(c => c.f.Player.Name);
-            titles.Add(new PlayerTitle(emoji, name, description, string.Join(" & ", holders), format(best)));
+            var holders = candidates.Where(c => Math.Abs(c.Score - best) < 0.0001).Select(c => c.f.Player).ToList();
+            titles.Add(new PlayerTitle(emoji, name, description, string.Join(" & ", holders.Select(h => h.Name)), format(best),
+                holders.Select(h => h.Id).ToList()));
         }
 
         Add("💀", "Pechvogel", "die meisten Soul-Link-Tode ausgelöst",

@@ -320,6 +320,7 @@ public static class Formatting
                 "📊 **Tabelle** – Lebend/Gefangen/Tode/Verpasst pro Spieler\n" +
                 "🪦 **Friedhof** – alle toten Soul Links\n" +
                 "🏅 **Erfolge** – deine Erfolge und die aktuellen Titelträger\n" +
+                "🪪 **Profil** – dein Trainerpass über alle Runs\n" +
                 "📈 **Levelcap** – höchstes Level bis zur nächsten Arena\n\n" +
                 "**Verwaltung**\n" +
                 "➕ **Beitreten** · ▶️ **Run starten** · ⏹️ **Run beenden** · 🗺️ **Route erstellen**\n\n" +

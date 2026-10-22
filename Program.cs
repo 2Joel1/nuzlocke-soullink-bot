@@ -24,6 +24,7 @@ var services = new ServiceCollection()
     .AddSingleton<CardFactory>()
     .AddSingleton<LiveStatusService>()
     .AddSingleton<HighlightService>()
+    .AddSingleton<ProfileService>()
     .BuildServiceProvider();
 
 // --- Datenbank anlegen (falls noch nicht vorhanden) ---
