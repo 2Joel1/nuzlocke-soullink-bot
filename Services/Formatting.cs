@@ -12,6 +12,7 @@ public static class Formatting
     public static readonly Color Red = new(0xD8, 0x3C, 0x3E);
     public static readonly Color Grey = new(0x80, 0x84, 0x8E);
     public static readonly Color Gold = new(0xE6, 0xC2, 0x29);
+    public static readonly Color Blue = new(0x48, 0x80, 0xE0);
 
     private const int DescriptionLimit = 4000; // Discord erlaubt 4096
 
@@ -314,7 +315,8 @@ public static class Formatting
                 "**Im Run**\n" +
                 "🎯 **Fang** – Route wählen, Pokémon eintragen\n" +
                 "🟡 **Verpasst** – Encounter auf einer Route verpasst\n" +
-                "💀 **Tod** – eigenes Pokémon gestorben, alle Partner sterben mit\n\n" +
+                "💀 **Tod** – eigenes Pokémon gestorben, alle Partner sterben mit\n" +
+                "✨ **Entwicklung** – eigenes Pokémon hat sich entwickelt\n\n" +
                 "**Übersicht**\n" +
                 "📋 **Status** – alle Routen und Pokémon des Runs\n" +
                 "📊 **Tabelle** – Lebend/Gefangen/Tode/Verpasst pro Spieler\n" +

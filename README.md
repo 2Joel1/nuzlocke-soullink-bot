@@ -34,14 +34,14 @@ Gruppe von Spielern dokumentiert – mit Regelprüfung, Statistiken, Erfolgen un
 - **Regelprüfung** – nur ein Encounter pro Route und Spieler, nur gültige Routen und nur Pokémon,
   die es in Schwarz gibt (alle 649). Bei Vertippern schlägt der Bot ähnliche Namen vor.
 - **Run-Verwaltung** – Runs starten und beenden, verbrauchte Runs zählen, Historie aller Versuche.
-- **Generierte Bilder im Pixel-Stil** – Banner wie ein Kampfbildschirm (Fang, Tod, Run-Start/-Ende, Erfolge)
+- **Generierte Bilder im Pixel-Stil** – Banner wie ein Kampfbildschirm (Fang, Tod, Entwicklung, Run-Start/-Ende, Erfolge)
   mit den Sprites aller Soul-Link-Partner, ein Status-Board mit Menü-Icons und
   große Statistik-Tabellen, gezeichnet zur Laufzeit.
 - **Statistiken** – pro Run und über alle Runs: lebende Pokémon, Fänge, ausgelöste Tode, verpasste Encounter.
 - **Live-Status** – eine angepinnte Nachricht mit Board, Run-Tabelle und globaler Tabelle, die sich bei jeder Änderung selbst aktualisiert.
 - **Run-Rückblick** – am Ende jedes Runs ein Bild mit Dauer, Zeitstrahl aller Fänge und Tode, Spieler-Statistik
   und nummeriertem Friedhof.
-- **17 Erfolge & 5 Titel** – z. B. *Legendär*, *Blitzkrieg*, *Wipe-Verursacher*; Titel wie *Pechvogel*
+- **20 Erfolge & 5 Titel** – z. B. *Legendär*, *Blitzkrieg*, *Wipe-Verursacher*; Titel wie *Pechvogel*
   wandern automatisch zum aktuell Führenden.
 - **Zwei Bedienwege** – Slash-Commands mit Autocomplete oder ein Bedienfeld mit Buttons,
   Auswahlmenüs und Formularen (`/menu`).
@@ -129,6 +129,7 @@ einen Status (*lebendig*, *gebrochen*, *tot*). Dadurch reicht ein einziger Statu
 | `/fang route pokemon [spitzname]` | Fang eintragen |
 | `/verpasst route [pokemon]` | Encounter verpasst → Soul Link gebrochen |
 | `/tod route ursache` | Pokémon gestorben → ganzer Soul Link tot |
+| `/entwicklung route pokemon` | Eigenes Pokémon hat sich entwickelt (Banner vorher → nachher, Board zeigt die neue Form) |
 | `/status [run]` | Board mit allen Routen und Pokémon |
 | `/friedhof [run]` | Alle toten Soul Links |
 | `/tabelle run [nummer]` · `/tabelle global` | Statistik pro Spieler |
@@ -140,7 +141,7 @@ einen Status (*lebendig*, *gebrochen*, *tot*). Dadurch reicht ein einziger Statu
 | `/highlights [run] [spieler] [art]` | Hall of Fame: alle Highlights nach Sternen, mit Filtern und Blättern |
 | `/levelcap` | Levelcap bis zum nächsten Pflichtkampf (höchstes Level des Gegners) und alle Arenen im Überblick |
 | `/arena geschafft` · `/arena setzen geschafft` | Nächste Arena als geschafft eintragen · Fortschritt korrigieren |
-| `/korrektur fang-loeschen route` · `tod-zuruecknehmen route` | Fehler korrigieren |
+| `/korrektur fang-loeschen route` · `tod-zuruecknehmen route` · `entwicklung-zuruecknehmen route` | Fehler korrigieren |
 
 </details>
 
@@ -154,6 +155,7 @@ einen Status (*lebendig*, *gebrochen*, *tot*). Dadurch reicht ein einziger Statu
 | 🌱 Starter-Sammler | Starter einer beliebigen Generation gefangen (nicht am Start) |
 | 🗺️ Entdecker | Fang auf einer eigenen Route |
 | 👥 Volles Team | 6 lebende Soul Links gleichzeitig |
+| ✨ Nanu? · 🔺 Endstufe · 🦋 Metamorphose | Erste Entwicklung · ein Pokémon zweimal entwickelt · 10 Entwicklungen |
 | ⚰️ Willkommen im Club · 🪦 Totengräber | 1 · 10 ausgelöste Tode |
 | ⚡ Blitzkrieg | Tod auf einer der ersten 3 Routen eines Runs ausgelöst |
 | 💥 Wipe-Verursacher | Letzten Tod eines gescheiterten Runs ausgelöst |

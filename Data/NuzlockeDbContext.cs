@@ -15,6 +15,7 @@ public class NuzlockeDbContext(DbContextOptions<NuzlockeDbContext> options) : Db
     public DbSet<ArenaClear> ArenaClears => Set<ArenaClear>();
     public DbSet<Highlight> Highlights => Set<Highlight>();
     public DbSet<HighlightStar> HighlightStars => Set<HighlightStar>();
+    public DbSet<Evolution> Evolutions => Set<Evolution>();
 
     /// <summary>
     /// Legt Tabellen an, die nach dem ersten Start dazugekommen sind.
@@ -79,6 +80,16 @@ public class NuzlockeDbContext(DbContextOptions<NuzlockeDbContext> options) : Db
                 CONSTRAINT "FK_HighlightStars_Players_PlayerId" FOREIGN KEY ("PlayerId") REFERENCES "Players" ("Id") ON DELETE CASCADE
             );
             CREATE UNIQUE INDEX IF NOT EXISTS "IX_HighlightStars_HighlightId_PlayerId" ON "HighlightStars" ("HighlightId", "PlayerId");
+
+            CREATE TABLE IF NOT EXISTS "Evolutions" (
+                "Id" INTEGER NOT NULL CONSTRAINT "PK_Evolutions" PRIMARY KEY AUTOINCREMENT,
+                "EncounterId" INTEGER NOT NULL,
+                "FromSpecies" TEXT NOT NULL,
+                "ToSpecies" TEXT NOT NULL,
+                "CreatedAt" TEXT NOT NULL,
+                CONSTRAINT "FK_Evolutions_Encounters_EncounterId" FOREIGN KEY ("EncounterId") REFERENCES "Encounters" ("Id") ON DELETE CASCADE
+            );
+            CREATE INDEX IF NOT EXISTS "IX_Evolutions_EncounterId" ON "Evolutions" ("EncounterId");
 
             CREATE TABLE IF NOT EXISTS "LiveMessages" (
                 "GuildId" INTEGER NOT NULL CONSTRAINT "PK_LiveMessages" PRIMARY KEY,

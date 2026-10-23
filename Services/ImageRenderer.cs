@@ -21,10 +21,11 @@ public enum SceneMood { Day, Dawn, Dusk, Night, Gold, Grey }
 
 /// <summary>Inhalt eines Kampfszenen-Banners.</summary>
 /// <param name="BarValue">Füllstand der "Band"-Leiste. Bei <paramref name="BarMax"/> = 0 wird keine Leiste gezeigt.</param>
+/// <param name="Evolution">Zwei Pokémon als Entwicklung zeigen: vorher → nachher (mit Pfeil und Funkeln).</param>
 public record BattleBanner(
     SceneMood Mood, string Title, string Subtitle, string Line1, string Line2,
     IReadOnlyList<BannerMon> Mons, int BarValue = 0, int BarMax = 0, bool Grayscale = false, bool Medal = false,
-    string MedalLabel = "");
+    string MedalLabel = "", bool Evolution = false);
 
 /// <summary>
 /// Zeichnet alle Bilder im Pixel-Stil eines Kampfbildschirms: Banner, Status-Board, Tabellen und Rückblick.
@@ -169,9 +170,14 @@ public sealed class ImageRenderer
                     for (var x = (y / 6) % 2 * 6; x < LW; x += 12) PixRect(ctx, x, y, x + 2, y + 1, p.Ground2);
 
                 // Pokémon auf Plattformen: bis zu 3 vorne, weitere dahinter (z. B. das Team beim Sieg)
-                var showTags = mons.Count <= 3;
-                if (mons.Count > 3) DrawGroup(ctx, f8, f16, p, mons, sprites, 3, mons.Count - 3, 62, 306, false, banner.Grayscale);
-                DrawGroup(ctx, f8, f16, p, mons, sprites, 0, Math.Min(3, mons.Count), 84, 284, showTags, banner.Grayscale);
+                if (banner.Evolution && mons.Count == 2)
+                    DrawEvolution(ctx, f8, f16, p, mons, sprites);
+                else
+                {
+                    var showTags = mons.Count <= 3;
+                    if (mons.Count > 3) DrawGroup(ctx, f8, f16, p, mons, sprites, 3, mons.Count - 3, 62, 306, false, banner.Grayscale);
+                    DrawGroup(ctx, f8, f16, p, mons, sprites, 0, Math.Min(3, mons.Count), 84, 284, showTags, banner.Grayscale);
+                }
 
                 if (banner.Medal) DrawMedal(ctx, f8, 290, banner.MedalLabel);
 
@@ -210,7 +216,7 @@ public sealed class ImageRenderer
         });
 
     private void DrawGroup(IImageProcessingContext ctx, Font f8, Font f16, ScenePalette p, List<BannerMon> mons,
-        Image<Rgba32>?[] sprites, int from, int count, int platformTop, int centerX, bool tags, bool grayscale)
+        Image<Rgba32>?[] sprites, int from, int count, int platformTop, int centerX, bool tags, bool grayscale, int tagWidth = 62)
     {
         var start = centerX - (count - 1) * 33;
         for (var i = 0; i < count; i++)
@@ -237,11 +243,32 @@ public sealed class ImageRenderer
             var caption = Sanitize(mons[from + i].Caption).ToUpperInvariant();
             if (tags && caption.Length > 0)
             {
-                caption = Fit(caption, f8, 62);
+                caption = Fit(caption, f8, tagWidth);
                 var w = (int)Width(caption, f8); var ty = Math.Max(4, head - 12);
                 PixRect(ctx, cx - w / 2 - 3, ty - 2, cx + w / 2 + 2, ty + 9, PixFrame);
                 PixText(ctx, cx - w / 2, ty, caption, f8, PixTag, shadow: false);
             }
+        }
+    }
+
+    /// <summary>Entwicklung: vorher links, Pfeil, nachher rechts mit Funkeln. Beide mit Namensschild.</summary>
+    private void DrawEvolution(IImageProcessingContext ctx, Font f8, Font f16, ScenePalette p, List<BannerMon> mons,
+        Image<Rgba32>?[] sprites)
+    {
+        DrawGroup(ctx, f8, f16, p, mons, sprites, 0, 1, 84, 222, true, false, tagWidth: 110);
+        DrawGroup(ctx, f8, f16, p, mons, sprites, 1, 1, 84, 344, true, false, tagWidth: 100);
+
+        // Pfeil (dunkler Rand, helle Füllung)
+        const int Ay = 70;
+        PixPolygon(ctx, PixFrame, (268, Ay - 4), (282, Ay - 4), (282, Ay - 10), (294, Ay), (282, Ay + 10), (282, Ay + 4), (268, Ay + 4));
+        PixPolygon(ctx, PixBox, (270, Ay - 2), (284, Ay - 2), (284, Ay - 6), (291, Ay), (284, Ay + 6), (284, Ay + 2), (270, Ay + 2));
+
+        // Funkeln um die neue Form
+        foreach (var (dx, dy, s) in new[] { (-34, -30, 3), (32, -44, 2), (36, -10, 3), (-30, 2, 2) })
+        {
+            int x = 344 + dx, y = 84 + dy;
+            PixRect(ctx, x - s, y, x + s, y, Color.White);
+            PixRect(ctx, x, y - s, x, y + s, Color.White);
         }
     }
 
@@ -583,8 +610,8 @@ public sealed class ImageRenderer
                 // Zeitstrahl
                 PixBoxShape(ctx, 4, YLine - 4, 395, YLine + 54);
                 SText(ctx, 12, YLine + 2, "ZEITSTRAHL", PixMuted, fs);
-                var lx = 196;
-                foreach (var (c, label) in new[] { (PixGreen, "FANG"), (PixYellow, "VERPASST"), (PixRed, "TOD") })
+                var lx = 150;
+                foreach (var (c, label) in new[] { (PixGreen, "FANG"), (PixYellow, "VERPASST"), (PixBlue, "ENTW."), (PixRed, "TOD") })
                 {
                     PixRect(ctx, lx, YLine + 3, lx + 5, YLine + 8, c);
                     SText(ctx, lx + 8, YLine + 2, label, PixMuted, fs);
@@ -600,6 +627,11 @@ public sealed class ImageRenderer
                 {
                     var x = At(e.CreatedAt);
                     PixRect(ctx, x - 1, by - 6, x, by + 5, e.Status == EncounterStatus.Gefangen ? PixGreen : PixYellow);
+                }
+                foreach (var evo in encounters.SelectMany(e => e.Evolutions))
+                {
+                    var x = At(evo.CreatedAt);
+                    PixRect(ctx, x - 1, by - 4, x, by + 3, PixBlue);
                 }
                 for (var i = 0; i < deaths.Count; i++)
                     NumberBadge(ctx, At(deaths[i].DiedAt!.Value), by, i + 1, f8);

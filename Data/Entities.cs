@@ -182,4 +182,18 @@ public class Encounter
     public string? Nickname { get; set; }
     public EncounterStatus Status { get; set; }
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
+
+    /// <summary>Entwicklungen dieses Pokémon. <see cref="Species"/> ist immer die aktuelle Form.</summary>
+    public List<Evolution> Evolutions { get; set; } = [];
+}
+
+/// <summary>Eine Entwicklung eines gefangenen Pokémon (z. B. Krabby → Kingler).</summary>
+public class Evolution
+{
+    public int Id { get; set; }
+    public int EncounterId { get; set; }
+    public Encounter Encounter { get; set; } = null!;
+    public string FromSpecies { get; set; } = "";
+    public string ToSpecies { get; set; } = "";
+    public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
 }

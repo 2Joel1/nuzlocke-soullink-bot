@@ -38,6 +38,19 @@ public class TodModal : IModal
     public string Ursache { get; set; } = "";
 }
 
+public class EntwicklungModal : IModal
+{
+    public string Title => "✨ Entwicklung eintragen";
+
+    [InputLabel("Route")]
+    [ModalTextInput("route", maxLength: 60)]
+    public string Route { get; set; } = "";
+
+    [InputLabel("Zu welchem Pokémon? (Name oder Dex-Nummer)")]
+    [ModalTextInput("pokemon", placeholder: "z. B. Kingler oder 99", maxLength: 30)]
+    public string Pokemon { get; set; } = "";
+}
+
 public class RunEndeModal : IModal
 {
     public string Title => "⏹️ Run beenden";
@@ -77,6 +90,7 @@ public class MenuModule(RunService runs, AchievementService achievements, CardFa
             .WithButton("Fang", "nz:fang", ButtonStyle.Success, new Emoji("🎯"), row: 0)
             .WithButton("Verpasst", "nz:verpasst", ButtonStyle.Secondary, new Emoji("🟡"), row: 0)
             .WithButton("Tod", "nz:tod", ButtonStyle.Danger, new Emoji("💀"), row: 0)
+            .WithButton("Entwicklung", "nz:entwicklung", ButtonStyle.Success, new Emoji("✨"), row: 0)
             .WithButton("Levelcap", "nz:levelcap", ButtonStyle.Primary, new Emoji("📈"), row: 0)
             .WithButton("Status", "nz:status", ButtonStyle.Primary, new Emoji("📋"), row: 1)
             .WithButton("Tabelle", "nz:tabelle", ButtonStyle.Primary, new Emoji("📊"), row: 1)
@@ -164,6 +178,29 @@ public class MenuModule(RunService runs, AchievementService achievements, CardFa
     [ModalInteraction("nz:tod-modal")]
     public Task TodModalAsync(TodModal modal) =>
         SafeAsync(() => DoDeathAsync(modal.Route, modal.Ursache));
+
+    // ---------------------------------------------------------------- Entwicklung
+
+    [ComponentInteraction("nz:entwicklung")]
+    public Task EntwicklungButtonAsync() =>
+        SafeAsync(async () =>
+        {
+            await Runs.EnsureParticipantAsync(GuildId, Context.User.Id);
+            var living = await Runs.GetOwnLivingRoutesAsync(GuildId, Context.User.Id);
+            if (living.Count == 0) throw new NuzlockeException("Du hast gerade keine lebenden Pokémon.");
+
+            await RespondAsync("✨ Welches Pokémon hat sich entwickelt?",
+                components: Select("nz:entwicklung-route", "Pokémon wählen", living.Select(x => (x.Route, x.Label))), ephemeral: true);
+        });
+
+    [ComponentInteraction("nz:entwicklung-route")]
+    public Task EntwicklungRouteAsync(string[] selected) =>
+        SafeAsync(() => RespondWithModalAsync<EntwicklungModal>("nz:entwicklung-modal",
+            modifyModal: m => m.UpdateTextInput("route", t => t.Value = selected[0])));
+
+    [ModalInteraction("nz:entwicklung-modal")]
+    public Task EntwicklungModalAsync(EntwicklungModal modal) =>
+        SafeAsync(() => DoEvolveAsync(modal.Route, modal.Pokemon));
 
     // ---------------------------------------------------------------- Übersichten (nur für dich sichtbar)
 

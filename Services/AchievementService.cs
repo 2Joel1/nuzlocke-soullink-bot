@@ -61,6 +61,14 @@ public class AchievementService(IDbContextFactory<NuzlockeDbContext> dbFactory)
                 r.Links.Count(l => l.Status == LinkStatus.Lebendig &&
                                    l.Encounters.Any(e => e.PlayerId == f.Player.Id && e.Status == EncounterStatus.Gefangen)) >= 6)),
 
+        // Entwicklung
+        new("nanu", "✨", "Nanu?", "Dein erstes Pokémon entwickelt",
+            f => Caught(f).Any(x => x.Encounter.Evolutions.Count > 0)),
+        new("endstufe", "🔺", "Endstufe", "Ein Pokémon zweimal entwickelt",
+            f => Caught(f).Any(x => x.Encounter.Evolutions.Count >= 2)),
+        new("metamorphose", "🦋", "Metamorphose", "10 Entwicklungen (über alle Runs)",
+            f => Caught(f).Sum(x => x.Encounter.Evolutions.Count) >= 10),
+
         // Pech
         new("erster-tod", "⚰️", "Willkommen im Club", "Deinen ersten Soul-Link-Tod ausgelöst",
             f => f.CausedDeaths.Count > 0),
@@ -168,6 +176,9 @@ public class AchievementService(IDbContextFactory<NuzlockeDbContext> dbFactory)
         "legendaer" => Caught(f).LastOrDefault(x => Pokedex.Number(x.Encounter.Species) is { } nr && Pokedex.Legendaries.Contains(nr)).Encounter?.Species,
         "starter-trio" => Caught(f).LastOrDefault(x => Pokedex.Number(x.Encounter.Species) is { } nr && StarterNumbers.Contains(nr)).Encounter?.Species,
         "erster-fang" => Caught(f).FirstOrDefault().Encounter?.Species,
+        "nanu" or "metamorphose" => Caught(f).Where(x => x.Encounter.Evolutions.Count > 0)
+            .MaxBy(x => x.Encounter.Evolutions.Max(e => e.CreatedAt)).Encounter?.Species,
+        "endstufe" => Caught(f).LastOrDefault(x => x.Encounter.Evolutions.Count >= 2).Encounter?.Species,
         _ => null
     };
 

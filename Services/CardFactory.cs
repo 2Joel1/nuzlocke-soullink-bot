@@ -130,6 +130,20 @@ public class CardFactory(ImageRenderer renderer, HighlightService highlights)
         return new Card(embed, image, "tod.png");
     }
 
+    /// <summary>Entwicklung: vorher → nachher, Text wie im Spiel ("Nanu? BOB entwickelt sich!").</summary>
+    public async Task<Card> EvolutionAsync(EvolutionResult r)
+    {
+        var me = r.Encounter;
+        var name = string.IsNullOrWhiteSpace(me.Nickname) ? r.From : me.Nickname!;
+        var embed = Formatting.LinkEmbedBuilder($"✨ {r.Link.Route}: {name} hat sich zu {r.To} entwickelt", r.Run, r.Link,
+            Formatting.Blue, $"Vorher: {r.From}", r.To);
+
+        var image = await renderer.BattleAsync(new BattleBanner(SceneMood.Dawn, Up(r.Link.Route), $"RUN {r.Run.Number}",
+            $"Nanu? {Up(name)} entwickelt sich!", $"{Up(name)} wurde zu {Up(r.To)}!",
+            [new BannerMon(r.From, r.From), new BannerMon(r.To, r.To)], Evolution: true));
+        return new Card(embed, image, "entwicklung.png");
+    }
+
     // ---------------------------------------------------------------- Runs
 
     public async Task<Card> RunStartAsync(Run run, int previous)

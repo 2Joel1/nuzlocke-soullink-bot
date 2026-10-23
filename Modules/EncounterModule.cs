@@ -24,6 +24,12 @@ public class EncounterModule(RunService runs, AchievementService achievements, C
         [Summary("ursache", "z. B. \"Arenaleiterin Aloe\" oder \"Krit von Wild-Tragosso\"")] string ursache) =>
         SafeAsync(() => DoDeathAsync(route, ursache));
 
+    [SlashCommand("entwicklung", "Eines deiner Pokémon hat sich entwickelt")]
+    public Task EntwicklungAsync(
+        [Summary("route", "Route des Pokémon"), Autocomplete(typeof(OwnLivingRouteAutocomplete))] string route,
+        [Summary("pokemon", "Zu welchem Pokémon?"), Autocomplete(typeof(PokemonAutocomplete))] string pokemon) =>
+        SafeAsync(() => DoEvolveAsync(route, pokemon));
+
     [SlashCommand("status", "Übersicht über den aktuellen (oder einen alten) Run")]
     public Task StatusAsync(
         [Summary("run", "Run-Nummer (leer = aktueller Run)"), MinValue(1)] int run = 0) =>

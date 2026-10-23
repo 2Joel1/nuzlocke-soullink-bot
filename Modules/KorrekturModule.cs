@@ -25,4 +25,13 @@ public class KorrekturModule(RunService runs, AchievementService achievements, C
                 $"✨ {link.Route}: Tod zurückgenommen", run, link, Formatting.Green,
                 $"Korrigiert von {DisplayName}."));
         });
+
+    [SlashCommand("entwicklung-zuruecknehmen", "Die letzte Entwicklung deines Pokémon rückgängig machen")]
+    public Task EntwicklungZuruecknehmenAsync(
+        [Summary("route", "Route"), Autocomplete(typeof(OwnEvolvedRouteAutocomplete))] string route) =>
+        SafeAsync(async () =>
+        {
+            var r = await Runs.UndoEvolutionAsync(GuildId, Context.User.Id, route);
+            await RespondAsync($"↩️ {r.Link.Route}: Entwicklung zurückgenommen – **{r.From}** ist wieder **{r.To}**.");
+        });
 }

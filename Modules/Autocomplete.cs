@@ -47,6 +47,13 @@ public class OwnLivingRouteAutocomplete : RouteAutocompleteBase
         (await runs.GetOwnLivingRoutesAsync(guildId, userId)).Select(x => (x.Route, x.Label)).ToList();
 }
 
+/// <summary>/korrektur entwicklung-zuruecknehmen: eigene entwickelte Pokémon des aktiven Runs.</summary>
+public class OwnEvolvedRouteAutocomplete : RouteAutocompleteBase
+{
+    protected override async Task<List<(string Value, string Label)>> GetOptionsAsync(RunService runs, ulong guildId, ulong userId) =>
+        (await runs.GetOwnEvolvedRoutesAsync(guildId, userId)).Select(x => (x.Route, x.Label)).ToList();
+}
+
 /// <summary>/korrektur fang-loeschen: Routen, auf denen der Spieler einen Encounter hat.</summary>
 public class OwnEncounterRouteAutocomplete : RouteAutocompleteBase
 {

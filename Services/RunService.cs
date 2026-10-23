@@ -11,6 +11,9 @@ public record LinkResult(Run Run, RouteLink Link);
 
 /// <summary>Eine Zeile der Übersichtstabelle.</summary>
 /// <param name="Best">Weitester Fortschritt (geschaffte Pflichtkämpfe) in allen Runs des Spielers.</param>
+/// <summary>Ergebnis einer Entwicklung bzw. ihrer Rücknahme: vorher → nachher.</summary>
+public record EvolutionResult(Run Run, RouteLink Link, Encounter Encounter, string From, string To);
+
 public record PlayerStats(string Name, int Runs, int Alive, int Caught, int Deaths, int Missed, int Best = 0);
 
 public class RunService(IDbContextFactory<NuzlockeDbContext> dbFactory)
@@ -33,6 +36,7 @@ public class RunService(IDbContextFactory<NuzlockeDbContext> dbFactory)
             .Where(r => r.GuildId == (long)guildId)
             .Include(r => r.Participants).ThenInclude(p => p.Player)
             .Include(r => r.Links).ThenInclude(l => l.Encounters).ThenInclude(e => e.Player)
+            .Include(r => r.Links).ThenInclude(l => l.Encounters).ThenInclude(e => e.Evolutions)
             .Include(r => r.Links).ThenInclude(l => l.CausedByPlayer)
             .Include(r => r.ArenaClears)
             .AsSplitQuery();
@@ -284,6 +288,55 @@ public class RunService(IDbContextFactory<NuzlockeDbContext> dbFactory)
         return new LinkResult(run, link);
     }
 
+    /// <summary>
+    /// Eigenes gefangenes Pokémon entwickeln. Die Zielform wird nicht gegen echte Entwicklungsreihen geprüft,
+    /// weil der Randomizer Entwicklungen verändern kann.
+    /// </summary>
+    public async Task<EvolutionResult> EvolveAsync(ulong guildId, ulong userId, string route, string species)
+    {
+        await using var db = await dbFactory.CreateDbContextAsync();
+        var run = await RequireActiveRunAsync(db, guildId);
+        var player = RequireParticipant(run, userId);
+        var link = RequireLink(run, route);
+        var own = link.Encounters.FirstOrDefault(e => e.PlayerId == player.Id && e.Status == EncounterStatus.Gefangen)
+            ?? throw new NuzlockeException($"Du hast auf **{link.Route}** kein gefangenes Pokémon.");
+
+        if (link.Status == LinkStatus.Tot)
+            throw new NuzlockeException($"Der Soul Link auf **{link.Route}** ist tot – entwickeln geht nur mit lebenden Pokémon.");
+        var target = RequirePokemon(species);
+        if (target == own.Species)
+            throw new NuzlockeException($"{Formatting.PokemonText(own)} ist schon ein **{target}**.");
+
+        var from = own.Species;
+        own.Evolutions.Add(new Evolution { FromSpecies = from, ToSpecies = target });
+        own.Species = target;
+
+        await db.SaveChangesAsync();
+        OnRunChanged(guildId);
+        return new EvolutionResult(run, link, own, from, target);
+    }
+
+    /// <summary>Letzte Entwicklung des eigenen Pokémon auf einer Route zurücknehmen (Vertipper).</summary>
+    public async Task<EvolutionResult> UndoEvolutionAsync(ulong guildId, ulong userId, string route)
+    {
+        await using var db = await dbFactory.CreateDbContextAsync();
+        var run = await RequireActiveRunAsync(db, guildId);
+        var player = RequireParticipant(run, userId);
+        var link = RequireLink(run, route);
+        var own = link.Encounters.FirstOrDefault(e => e.PlayerId == player.Id && e.Status == EncounterStatus.Gefangen)
+            ?? throw new NuzlockeException($"Du hast auf **{link.Route}** kein gefangenes Pokémon.");
+        var last = own.Evolutions.OrderByDescending(e => e.CreatedAt).ThenByDescending(e => e.Id).FirstOrDefault()
+            ?? throw new NuzlockeException($"{Formatting.PokemonText(own)} hat sich noch nicht entwickelt.");
+
+        own.Species = last.FromSpecies;
+        own.Evolutions.Remove(last);
+        db.Evolutions.Remove(last);
+
+        await db.SaveChangesAsync();
+        OnRunChanged(guildId);
+        return new EvolutionResult(run, link, own, last.ToSpecies, last.FromSpecies);
+    }
+
     public static string RequirePokemon(string input) =>
         Pokedex.Find(input)
         ?? throw new NuzlockeException($"**{input.Trim()}** gibt es in Pokémon Schwarz nicht. " +
@@ -478,6 +531,22 @@ public class RunService(IDbContextFactory<NuzlockeDbContext> dbFactory)
             .Where(x => x.Own is not null)
             .OrderBy(x => x.Link.Id)
             .Select(x => (x.Link.Route, $"{x.Link.Route} – {Formatting.PokemonText(x.Own!)}"))
+            .ToList();
+    }
+
+    /// <summary>Routen, auf denen das eigene Pokémon sich im aktiven Run entwickelt hat (für /korrektur).</summary>
+    public async Task<List<(string Route, string Label)>> GetOwnEvolvedRoutesAsync(ulong guildId, ulong userId)
+    {
+        await using var db = await dbFactory.CreateDbContextAsync();
+        var run = await RunsWithDetails(db, guildId).FirstOrDefaultAsync(r => r.Status == RunStatus.Aktiv);
+        if (run is null) return [];
+
+        return run.Links
+            .Select(l => (Link: l, Own: l.Encounters.FirstOrDefault(e =>
+                e.Player.DiscordUserId == (long)userId && e.Status == EncounterStatus.Gefangen && e.Evolutions.Count > 0)))
+            .Where(x => x.Own is not null)
+            .OrderBy(x => x.Link.Id)
+            .Select(x => (x.Link.Route, $"{x.Link.Route} – {Formatting.PokemonText(x.Own!)} (vorher {x.Own!.Evolutions.OrderBy(e => e.Id).Last().FromSpecies})"))
             .ToList();
     }
 

@@ -136,6 +136,14 @@ public abstract class NuzlockeModuleBase(RunService runs, AchievementService ach
         await AnnounceAchievementsAsync();
     }
 
+    protected async Task DoEvolveAsync(string route, string pokemon)
+    {
+        var result = await Runs.EvolveAsync(GuildId, Context.User.Id, route, pokemon);
+        await DeferForImageAsync();
+        await SendCardsAsync(false, null, null, await Cards.EvolutionAsync(result));
+        await AnnounceAchievementsAsync();
+    }
+
     protected async Task DoJoinAsync(string? name)
     {
         var player = await Runs.JoinAsync(GuildId, Context.User.Id, string.IsNullOrWhiteSpace(name) ? DisplayName : name.Trim());
