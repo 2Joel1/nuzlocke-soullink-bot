@@ -120,18 +120,18 @@ public static class Formatting
         string Name(string n) => n.Length <= 14 ? n : n[..13] + "…";
 
         var headers = global
-            ? new[] { "Spieler", "Runs", "Lebend", "Gefangen", "Tode", "Verpasst" }
+            ? new[] { "Spieler", "Runs", "Lebend", "Gefangen", "Tode", "Verpasst", "Wipes" }
             : new[] { "Spieler", "Lebend", "Gefangen", "Tode", "Verpasst" };
 
         var rows = stats.Select(s => global
-                ? new[] { Name(s.Name), $"{s.Runs}", $"{s.Alive}", $"{s.Caught}", $"{s.Deaths}", $"{s.Missed}" }
+                ? new[] { Name(s.Name), $"{s.Runs}", $"{s.Alive}", $"{s.Caught}", $"{s.Deaths}", $"{s.Missed}", $"{s.Wipes}" }
                 : new[] { Name(s.Name), $"{s.Alive}", $"{s.Caught}", $"{s.Deaths}", $"{s.Missed}" })
             .ToList();
 
         if (stats.Count > 1)
         {
             rows.Add(global
-                ? new[] { "Gesamt", "", $"{stats.Sum(s => s.Alive)}", $"{stats.Sum(s => s.Caught)}", $"{stats.Sum(s => s.Deaths)}", $"{stats.Sum(s => s.Missed)}" }
+                ? new[] { "Gesamt", "", $"{stats.Sum(s => s.Alive)}", $"{stats.Sum(s => s.Caught)}", $"{stats.Sum(s => s.Deaths)}", $"{stats.Sum(s => s.Missed)}", $"{stats.Sum(s => s.Wipes)}" }
                 : new[] { "Gesamt", $"{stats.Sum(s => s.Alive)}", $"{stats.Sum(s => s.Caught)}", $"{stats.Sum(s => s.Deaths)}", $"{stats.Sum(s => s.Missed)}" });
         }
 
@@ -139,7 +139,7 @@ public static class Formatting
             .WithTitle(title)
             .WithDescription(Truncate(Table(headers, rows)))
             .WithColor(color)
-            .WithFooter((global ? "Lebend = im laufenden Run · " : "") +
+            .WithFooter((global ? "Lebend = im laufenden Run · Wipes = gescheiterte Runs, deren letzten Tod der Spieler ausgelöst hat · " : "") +
                         "Tode = Soul Links, deren Tod der Spieler ausgelöst hat");
     }
 

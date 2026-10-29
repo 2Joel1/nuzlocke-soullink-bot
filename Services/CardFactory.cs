@@ -271,14 +271,14 @@ public class CardFactory(ImageRenderer renderer, HighlightService highlights)
         string imageTitle, string imageSubtitle)
     {
         var headers = global
-            ? new[] { "SPIELER", "RUNS", "LEBT", "FANG", "TODE", "VERP.", "BESTE" }
+            ? new[] { "SPIELER", "RUNS", "LEBT", "FANG", "TODE", "VERP.", "WIPES", "BESTE" }
             : new[] { "SPIELER", "LEBT", "FANG", "TODE", "VERP." };
         var tones = global
-            ? new[] { Tone.Grey, Tone.Green, Tone.Blue, Tone.Red, Tone.Yellow, Tone.Gold }
+            ? new[] { Tone.Grey, Tone.Green, Tone.Blue, Tone.Red, Tone.Yellow, Tone.Purple, Tone.Gold }
             : new[] { Tone.Green, Tone.Blue, Tone.Red, Tone.Yellow };
 
         var rows = stats.Select(s => global
-                ? new[] { s.Name, $"{s.Runs}", $"{s.Alive}", $"{s.Caught}", $"{s.Deaths}", $"{s.Missed}", $"{s.Best}" }
+                ? new[] { s.Name, $"{s.Runs}", $"{s.Alive}", $"{s.Caught}", $"{s.Deaths}", $"{s.Missed}", $"{s.Wipes}", $"{s.Best}" }
                 : new[] { s.Name, $"{s.Alive}", $"{s.Caught}", $"{s.Deaths}", $"{s.Missed}" })
             .ToList();
 
@@ -287,7 +287,7 @@ public class CardFactory(ImageRenderer renderer, HighlightService highlights)
         {
             string[] sums = [$"{stats.Sum(s => s.Alive)}", $"{stats.Sum(s => s.Caught)}", $"{stats.Sum(s => s.Deaths)}", $"{stats.Sum(s => s.Missed)}"];
             total = global
-                ? new[] { "Gesamt", "" }.Concat(sums).Append("").ToArray()
+                ? new[] { "Gesamt", "" }.Concat(sums).Append($"{stats.Sum(s => s.Wipes)}").Append("").ToArray()
                 : new[] { "Gesamt" }.Concat(sums).ToArray();
         }
 
@@ -298,7 +298,7 @@ public class CardFactory(ImageRenderer renderer, HighlightService highlights)
             : new EmbedBuilder()
                 .WithTitle(title)
                 .WithColor(tone == Tone.Gold ? Formatting.Gold : Formatting.Green)
-                .WithFooter((global ? "Lebend = im laufenden Run · Beste = weitester Fortschritt (Kämpfe) · " : "") +
+                .WithFooter((global ? "Lebend = im laufenden Run · Wipes = gescheiterte Runs, deren letzten Tod der Spieler ausgelöst hat · Beste = weitester Fortschritt (Kämpfe) · " : "") +
                             "Tode = Soul Links, deren Tod der Spieler ausgelöst hat");
         return new Card(embed, image, fileName);
     }

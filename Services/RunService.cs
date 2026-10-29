@@ -14,7 +14,8 @@ public record LinkResult(Run Run, RouteLink Link);
 /// <summary>Ergebnis einer Entwicklung bzw. ihrer Rücknahme: vorher → nachher.</summary>
 public record EvolutionResult(Run Run, RouteLink Link, Encounter Encounter, string From, string To);
 
-public record PlayerStats(string Name, int Runs, int Alive, int Caught, int Deaths, int Missed, int Best = 0);
+/// <param name="Wipes">Gescheiterte Runs, bei denen der Spieler den letzten Tod ausgelöst hat.</param>
+public record PlayerStats(string Name, int Runs, int Alive, int Caught, int Deaths, int Missed, int Best = 0, int Wipes = 0);
 
 public class RunService(IDbContextFactory<NuzlockeDbContext> dbFactory)
 {
@@ -474,6 +475,7 @@ public class RunService(IDbContextFactory<NuzlockeDbContext> dbFactory)
 
         var encounters = runs.SelectMany(r => r.Links).SelectMany(l => l.Encounters).ToList();
         var deadLinks = runs.SelectMany(r => r.Links).Where(l => l.Status == LinkStatus.Tot).ToList();
+        var wipers = runs.Select(WipedBy).Where(id => id is not null).ToList();
 
         return players.Select(p => new PlayerStats(
                 Name: p.Name,
@@ -484,9 +486,20 @@ public class RunService(IDbContextFactory<NuzlockeDbContext> dbFactory)
                 Caught: encounters.Count(e => e.PlayerId == p.Id && e.Status == EncounterStatus.Gefangen),
                 Deaths: deadLinks.Count(l => l.CausedByPlayerId == p.Id),
                 Missed: encounters.Count(e => e.PlayerId == p.Id && e.Status == EncounterStatus.Verpasst),
-                Best: runs.Where(r => r.Participants.Any(x => x.PlayerId == p.Id)).Select(r => r.Progress).DefaultIfEmpty(0).Max()))
+                Best: runs.Where(r => r.Participants.Any(x => x.PlayerId == p.Id)).Select(r => r.Progress).DefaultIfEmpty(0).Max(),
+                Wipes: wipers.Count(id => id == p.Id)))
             .ToList();
     }
+
+    /// <summary>
+    /// Wer einen gescheiterten Run beendet hat: der Spieler, der den letzten Soul-Link-Tod ausgelöst hat.
+    /// Null bei Runs, die nicht gescheitert sind (aktiv, geschafft, abgebrochen) oder ohne Tod endeten.
+    /// </summary>
+    public static int? WipedBy(Run run) =>
+        run.Status != RunStatus.Gescheitert
+            ? null
+            : run.Links.Where(l => l.Status == LinkStatus.Tot && l.DiedAt != null)
+                .OrderByDescending(l => l.DiedAt).FirstOrDefault()?.CausedByPlayerId;
 
     // ---------------------------------------------------------------- Autocomplete
 

@@ -77,9 +77,7 @@ public class AchievementService(IDbContextFactory<NuzlockeDbContext> dbFactory)
         new("blitztod", "⚡", "Blitzkrieg", "Einen Tod auf einer der ersten 3 Routen eines Runs ausgelöst",
             f => f.CausedDeaths.Any(x => x.Run.Links.OrderBy(l => l.Id).Take(3).Any(l => l.Id == x.Link.Id))),
         new("wipe", "💥", "Wipe-Verursacher", "Den letzten Tod eines gescheiterten Runs ausgelöst",
-            f => f.Runs.Where(r => r.Status == RunStatus.Gescheitert).Any(r =>
-                r.Links.Where(l => l.Status == LinkStatus.Tot && l.DiedAt != null)
-                    .OrderByDescending(l => l.DiedAt).FirstOrDefault()?.CausedByPlayerId == f.Player.Id)),
+            f => f.Runs.Any(r => RunService.WipedBy(r) == f.Player.Id)),
         new("fluchtmagnet", "🏃", "Fluchtmagnet", "3 Encounter in einem einzigen Run verpasst",
             f => f.Encounters.Where(x => x.Encounter.Status == EncounterStatus.Verpasst)
                 .GroupBy(x => x.Run.Id).Any(g => g.Count() >= 3)),
@@ -239,6 +237,8 @@ public class AchievementService(IDbContextFactory<NuzlockeDbContext> dbFactory)
 
         Add("💀", "Pechvogel", "die meisten Soul-Link-Tode ausgelöst",
             f => f.CausedDeaths.Count, v => $"{v} Tode");
+        Add("💥", "Run-Killer", "die meisten Runs beendet (letzten Tod eines gescheiterten Runs ausgelöst)",
+            f => f.Runs.Count(r => RunService.WipedBy(r) == f.Player.Id), v => v == 1 ? "1 Run" : $"{v} Runs");
         Add("🎣", "Meisterfänger", "die meisten Pokémon gefangen",
             f => Caught(f).Count(), v => $"{v} Fänge");
         Add("🙈", "Grobmotoriker", "die meisten Encounter verpasst",

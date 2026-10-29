@@ -37,11 +37,12 @@ Gruppe von Spielern dokumentiert – mit Regelprüfung, Statistiken, Erfolgen un
 - **Generierte Bilder im Pixel-Stil** – Banner wie ein Kampfbildschirm (Fang, Tod, Entwicklung, Run-Start/-Ende, Erfolge)
   mit den Sprites aller Soul-Link-Partner, ein Status-Board mit Menü-Icons und
   große Statistik-Tabellen, gezeichnet zur Laufzeit.
-- **Statistiken** – pro Run und über alle Runs: lebende Pokémon, Fänge, ausgelöste Tode, verpasste Encounter.
+- **Statistiken** – pro Run und über alle Runs: lebende Pokémon, Fänge, ausgelöste Tode, verpasste Encounter
+  und Wipes (gescheiterte Runs, deren letzten Tod der Spieler ausgelöst hat).
 - **Live-Status** – eine angepinnte Nachricht mit Board, Run-Tabelle und globaler Tabelle, die sich bei jeder Änderung selbst aktualisiert.
 - **Run-Rückblick** – am Ende jedes Runs ein Bild mit Dauer, Zeitstrahl aller Fänge und Tode, Spieler-Statistik
   und nummeriertem Friedhof.
-- **20 Erfolge & 5 Titel** – z. B. *Legendär*, *Blitzkrieg*, *Wipe-Verursacher*; Titel wie *Pechvogel*
+- **20 Erfolge & 6 Titel** – z. B. *Legendär*, *Blitzkrieg*, *Wipe-Verursacher*; Titel wie *Pechvogel* oder *Run-Killer*
   wandern automatisch zum aktuell Führenden.
 - **Zwei Bedienwege** – Slash-Commands mit Autocomplete oder ein Bedienfeld mit Buttons,
   Auswahlmenüs und Formularen (`/menu`).

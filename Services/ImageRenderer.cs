@@ -11,7 +11,7 @@ using RectShape = SixLabors.ImageSharp.Drawing.RectangularPolygon;
 namespace NuzlockeBot.Services;
 
 /// <summary>Farbrollen für Tabellenspalten.</summary>
-public enum Tone { Green, Yellow, Red, Blue, Gold, Grey }
+public enum Tone { Green, Yellow, Red, Blue, Gold, Grey, Purple }
 
 /// <summary>Ein Pokémon auf einem Banner. Leere Art = noch unbekannt ("?"), leere Beschriftung = kein Namensschild.</summary>
 public record BannerMon(string Species, string Caption);
@@ -74,6 +74,7 @@ public sealed class ImageRenderer
         Tone.Red => PixRed,
         Tone.Blue => PixBlue,
         Tone.Gold => PixGold,
+        Tone.Purple => Rgb(152, 80, 200),
         _ => PixMuted
     };
 
@@ -494,11 +495,12 @@ public sealed class ImageRenderer
         IReadOnlyList<string[]> rows, string[]? total) =>
         SafeRenderAsync(async () =>
         {
-            const int RowH = 22, Top = 62, First = 140;
+            const int RowH = 22, Top = 62;
             var height = Top + RowH * Math.Max(1, rows.Count) + 14 + (total is null ? 0 : RowH + 10) + 6;
-            var step = (386f - First) / Math.Max(1, headers.Length - 1);
+            var first = headers.Length - 1 >= 7 ? 116 : 140;   // viele Spalten → schmalere Namensspalte
+            var step = (386f - first) / Math.Max(1, headers.Length - 1);
             var (f8, f16, fs) = Fonts();
-            float Right(int col) => First + step * (col + 1);
+            float Right(int col) => first + step * (col + 1);
 
             using var img = CreatePage(mood, height);
             img.Mutate(ctx =>
@@ -513,7 +515,7 @@ public sealed class ImageRenderer
                 for (var r = 0; r < rows.Count; r++)
                 {
                     if (r % 2 == 1) PixRect(ctx, 7, y, 392, y + RowH - 1, PixStripe);
-                    DrawRow(ctx, rows[r], y, f8, f16, First, Right, columnTones, bigName: true);
+                    DrawRow(ctx, rows[r], y, f8, f16, first, Right, step, columnTones, bigName: true);
                     y += RowH;
                 }
 
@@ -523,7 +525,7 @@ public sealed class ImageRenderer
                     PixRect(ctx, 4, ty, 395, ty + RowH + 4, PixFrame);
                     PixRect(ctx, 6, ty + 2, 393, ty + RowH + 2, Rgb(252, 226, 120));
                     PixRect(ctx, 7, ty + 3, 392, ty + RowH + 1, Rgb(254, 240, 176));
-                    DrawRow(ctx, total, ty + 3, f8, f16, First, Right, columnTones, bigName: false);
+                    DrawRow(ctx, total, ty + 3, f8, f16, first, Right, step, columnTones, bigName: false);
                 }
 
                 Finish(ctx, height);
@@ -532,8 +534,9 @@ public sealed class ImageRenderer
             return await ToPngAsync(img);
         });
 
+    /// <summary>Tabellenzeile. Zahlen, die nicht in ihre Spalte passen (z. B. dreistellig), kommen in kleiner Schrift.</summary>
     private static void DrawRow(IImageProcessingContext ctx, string[] row, int y, Font f8, Font f16, int first,
-        Func<int, float> right, Tone[] tones, bool bigName)
+        Func<int, float> right, float step, Tone[] tones, bool bigName)
     {
         var name = Sanitize(row[0]);
         if (bigName && Width(name, f16) <= first - 20) PixText(ctx, 14, y + 3, name, f16, PixInk);
@@ -543,7 +546,9 @@ public sealed class ImageRenderer
         {
             var v = row[i];
             if (v.Length == 0) continue;
-            PixText(ctx, (int)(right(i - 1) - Width(v, f16)), y + 3, v, f16, v == "0" ? PixMuted : ToColor(tones[i - 1]));
+            var big = Width(v, f16) <= step - 6;
+            var f = big ? f16 : f8;
+            PixText(ctx, (int)(right(i - 1) - Width(v, f)), big ? y + 3 : y + 7, v, f, v == "0" ? PixMuted : ToColor(tones[i - 1]));
         }
     }
 
